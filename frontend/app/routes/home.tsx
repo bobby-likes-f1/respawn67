@@ -3,8 +3,8 @@ import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "My New App" },
-    { name: "description", content: "Built with React Router & shadcn" },
+    { title: "Respawn67" },
+    { name: "description", content: "Respawn67 is a web app where users can rate, check and review their favorite video games." },
   ];
 }
 
