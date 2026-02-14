@@ -120,6 +120,9 @@ export default function Home() {
           </div>
         </section>
       </div>
+      <footer className="border-t py-12 text-center text-muted-foreground text-sm">
+        <p>&copy; 2026 Respawn67. Built with shadcn/ui.</p>
+      </footer>
     </main>
   );
 }

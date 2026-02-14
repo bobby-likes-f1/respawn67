@@ -1,5 +1,5 @@
-import { Link } from "react-router";
-import { Plus, User } from "lucide-react";
+import { Link, useLocation } from "react-router"; 
+import { Plus, User, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
@@ -9,20 +9,29 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 
-const navLinks = [
-  { title: "Games", href: "/games" },
-  { title: "Backlog", href: "/backlog" },
-  { title: "Lists", href: "/lists" },
-  { title: "Community", href: "/community" },
-];
-
 export function Navbar() {
+  const location = useLocation();
+  const isLandingPage = location.pathname === "/";
+
+  const navLinks = isLandingPage 
+    ? [ 
+        { title: "Features", href: "/#features" },
+        { title: "Reviews", href: "/#reviews" },
+        { title: "About", href: "/about" },
+      ]
+    : [ 
+        { title: "Games", href: "/games" },
+        { title: "Backlog", href: "/backlog" },
+        { title: "Lists", href: "/lists" },
+        { title: "Community", href: "/community" },
+      ];
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         
         <div className="flex items-center gap-8">
-          <Link to="/" className="text-xl font-bold tracking-tighter">
+          <Link to={isLandingPage ? "/" : "/home"} className="text-xl font-bold tracking-tighter hover:opacity-80 transition-opacity">
             RESPAWN67
           </Link>
 
@@ -40,24 +49,45 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Button size="sm" className="gap-2 font-bold">
-            <Plus className="h-4 w-4" />
-            LOG GAME
-          </Button>
+          
+          {isLandingPage ? (
+            <>
+              <Button variant="ghost" asChild className="hidden sm:inline-flex">
+                <Link to="/login">Log In</Link>
+              </Button>
+              <Button asChild>
+                <Link to="/signup">Create Account</Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" className="hidden sm:flex gap-2 font-bold bg-emerald-600 hover:bg-emerald-700">
+                <Plus className="h-4 w-4" />
+                LOG GAME
+              </Button>
 
-          <NavigationMenu>
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/account" className="flex items-center gap-1 leading-none">
-                    <User className="h-4 w-4 shrink-0" />
-                    <span>Username</span>
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
+              <NavigationMenu>
+                <NavigationMenuList>
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
+                      <Link to="/account" className="flex items-center gap-2 leading-none">
+                        <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center border">
+                            <User className="h-3 w-3" />
+                        </div>
+                        <span className="hidden sm:inline">Username</span>
+                      </Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                </NavigationMenuList>
+              </NavigationMenu>
+            </>
+          )}
+
+          <Button variant="ghost" size="icon" className="md:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
         </div>
+
       </div>
     </header>
   );
