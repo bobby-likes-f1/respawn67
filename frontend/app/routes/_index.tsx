@@ -64,7 +64,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="bg-muted/40 py-20">
+      <section id="features" className="bg-muted/40 py-20">
         <div className="container mx-auto px-4 space-y-8">
           <h2 className="text-sm font-bold tracking-widest uppercase text-muted-foreground">Respawn67 lets you...</h2>
           
@@ -79,7 +79,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-20 grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <section id="reviews" className="container mx-auto px-4 py-20 grid grid-cols-1 lg:grid-cols-12 gap-12">
         
         <div className="lg:col-span-7 space-y-8">
           <div className="flex justify-between items-baseline border-b pb-2">

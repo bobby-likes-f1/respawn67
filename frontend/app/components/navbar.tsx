@@ -31,8 +31,9 @@ export function Navbar() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         
         <div className="flex items-center gap-8">
-          <Link to={isLandingPage ? "/" : "/home"} className="text-xl font-bold tracking-tighter hover:opacity-80 transition-opacity">
-            RESPAWN67
+          <Link to={isLandingPage ? "/" : "/home"} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src="/logo.png" alt="Respawn67" className="h-8 w-8" />
+            <span className="text-xl font-bold tracking-tighter">RESPAWN67</span>
           </Link>
 
           <NavigationMenu className="hidden md:flex">
