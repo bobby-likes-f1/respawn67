@@ -1,0 +1,23 @@
+# Environment files
+.env
+auth_tokens.txt
+
+# Build outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary
+*.test
+
+# Go workspace file
+go.work
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
