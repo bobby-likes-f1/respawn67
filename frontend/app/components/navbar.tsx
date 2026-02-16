@@ -17,7 +17,9 @@ export function Navbar() {
     ? [ 
         { title: "Features", href: "/#features" },
         { title: "Reviews", href: "/#reviews" },
+        { title: "Games", href: "/games" },
         { title: "About", href: "/about" },
+        
       ]
     : [ 
         { title: "Games", href: "/games" },
