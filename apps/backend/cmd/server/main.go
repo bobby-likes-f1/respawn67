@@ -37,9 +37,10 @@ func main() {
 
 	// Initialize repositories
 	gameRepo := repository.NewGameRepository(database.DB)
-
+	userRepo := repository.NewUserRepository(database.DB)
 	// Initialize handlers
 	gameHandler := handlers.NewGameHandler(gameRepo)
+	userHandler := handlers.NewUserHandler(userRepo)
 
 	// Setup Gin router
 	router := gin.Default()
@@ -51,6 +52,13 @@ func main() {
 	router.PUT("/games/:id", gameHandler.UpdateGame)
 	router.DELETE("/games/:id", gameHandler.DeleteGame)
 
+	// User routes - ADD THESE
+	router.GET("/users", userHandler.GetUsers)
+	router.GET("/users/:id", userHandler.GetUserByID)
+	router.GET("/users/username/:username", userHandler.GetUserByUsername)
+	router.POST("/users", userHandler.CreateUser)
+	router.PUT("/users/:id", userHandler.UpdateUser)
+	router.DELETE("/users/:id", userHandler.DeleteUser)
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.ServerPort)
 	fmt.Printf("🚀 Server starting on http://localhost%s\n", addr)
