@@ -1,9 +1,12 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
+	"respawn67/models"
 	"respawn67/services"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type GamesRouter struct {
@@ -18,7 +21,7 @@ var gamesRouter *GamesRouter
 
 func GetGamesRouter() *GamesRouter {
 	if gamesRouter == nil {
-		gamesRouter = NewGamesRouter() // Initialize only when needed
+		gamesRouter = NewGamesRouter()
 	}
 	return gamesRouter
 }
@@ -29,44 +32,60 @@ func addGameRoutes(rg *gin.RouterGroup) {
 	gamesRoutes := rg.Group("/games")
 
 	gamesRoutes.GET("/", router.GetAll)
-	// gamesRoutes.POST("/", router.postGames)
-
-	// gamesRoutes.GET("/:id", router.getGameByID)
+	gamesRoutes.GET("/:id", router.GetGameByID)
+	gamesRoutes.POST("/", router.PostGames)
 }
 
 func (r *GamesRouter) GetAll(c *gin.Context) {
 	games, err := r.service.GetAll()
+
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.IndentedJSON(http.StatusOK, games)
+
+	c.JSON(http.StatusOK, games)
 }
 
-// func (r *GamesRouter) postGames(c *gin.Context) {
-// 	var newGame game
+func (r *GamesRouter) GetGameByID(c *gin.Context) {
+	idStr := c.Param("id")
 
-// 	// Call BindJSON to bind the received JSON to
-// 	// newGame.
-// 	if err := c.BindJSON(&newGame); err != nil {
-// 		return
-// 	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid game id",
+		})
+		return
+	}
 
-// 	// Add the new game to the slice.
-// 	games = append(games, newGame)
-// 	c.IndentedJSON(http.StatusCreated, newGame)
-// }
+	game, err := r.service.GetGameByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
 
-// func (r *GamesRouter) getGameByID(c *gin.Context) {
-// 	id := c.Param("id")
+	c.JSON(http.StatusOK, game)
+}
 
-// 	// Loop over the list of games, looking for
-// 	// an game whose ID value matches the parameter.
-// 	for _, g := range games {
-// 		if g.ID == id {
-// 			c.IndentedJSON(http.StatusOK, g)
-// 			return
-// 		}
-// 	}
-// 	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "game not found"})
-// }
+func (r *GamesRouter) PostGames(c *gin.Context) {
+	var newGame models.Game
+
+	if err := c.ShouldBindJSON(&newGame); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request body",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	newGame, err := r.service.CreateGame(newGame)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	c.IndentedJSON(http.StatusCreated, newGame)
+}
