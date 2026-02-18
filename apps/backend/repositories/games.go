@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"gorm.io/gorm"
+	"respawn67/database"
 	"respawn67/models"
 )
 
@@ -9,7 +11,7 @@ type GamesRepository struct {
 }
 
 func NewGamesRepository() *GamesRepository {
-	return &GamesRepository{db: db.GetDB()}
+	return &GamesRepository{db: database.GetDB()}
 }
 
 func (r *GamesRepository) GetAll() ([]models.Game, error) {

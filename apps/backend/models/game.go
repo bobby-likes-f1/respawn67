@@ -1,19 +1,19 @@
 package models
 
+import "gorm.io/gorm"
+
 type Game struct {
-	ID                int      `json:"id"`
-	Title             string   `json:"title"`
-	Description       *string  `json:"description,omitempty"`         // Must be *string
-	ReleaseDate       *string  `json:"release_date,omitempty"`        // Must be *string
-	CoverImageURL     *string  `json:"cover_image_url,omitempty"`     // Must be *string
-	SpotlightImageURL *string  `json:"spotlight_image_url,omitempty"` // Must be *string
-	Developer         *string  `json:"developer,omitempty"`           // Must be *string
-	Publisher         *string  `json:"publisher,omitempty"`           // Must be *string
-	Genres            *string  `json:"genres,omitempty"`              // Must be *string
-	Platforms         []string `json:"platforms,omitempty"`
-	AverageRating     float64  `json:"average_rating"`
-	TotalReviews      int      `json:"total_reviews"`
-	IgdbID            *int     `json:"igdb_id,omitempty"` // Must be *int
-	CreatedAt         string   `json:"created_at,omitempty"`
-	UpdatedAt         string   `json:"updated_at,omitempty"`
+	gorm.Model
+	Title             string  `json:"title" gorm:"not null"`
+	Description       *string `json:"description,omitempty"`
+	ReleaseDate       *string `json:"release_date,omitempty"`
+	CoverImageURL     *string `json:"cover_image_url,omitempty"`
+	SpotlightImageURL *string `json:"spotlight_image_url,omitempty"`
+	Developer         *string `json:"developer,omitempty"`
+	Publisher         *string `json:"publisher,omitempty"`
+	Genres            *string `json:"genres,omitempty"`
+	Platforms         string  `json:"platforms,omitempty" gorm:"type:text"` // Store as JSON string
+	AverageRating     float64 `json:"average_rating" gorm:"default:0"`
+	TotalReviews      int     `json:"total_reviews" gorm:"default:0"`
+	IgdbID            *int    `json:"igdb_id,omitempty"`
 }

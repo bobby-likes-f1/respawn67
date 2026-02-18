@@ -1,17 +1,17 @@
 package routes
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"respawn67/services"
 )
 
 type GamesRouter struct {
-	service GamesService
+	service *services.GamesService
 }
 
 func NewGamesRouter() *GamesRouter {
-	return &GamesRouter{service: service.NewGamesService()}
+	return &GamesRouter{service: services.NewGamesService()}
 }
 
 var gamesRouter = NewGamesRouter()

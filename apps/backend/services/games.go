@@ -10,7 +10,7 @@ type GamesService struct {
 }
 
 func NewGamesService() *GamesService {
-	return &GamesService{repo: repo.NewGamesRepository()}
+	return &GamesService{repo: repositories.NewGamesRepository()}
 }
 
 func (s *GamesService) GetAll() ([]models.Game, error) {
