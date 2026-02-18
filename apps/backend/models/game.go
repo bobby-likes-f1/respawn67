@@ -17,3 +17,7 @@ type Game struct {
 	TotalReviews      int     `json:"total_reviews" gorm:"default:0"`
 	IgdbID            *int    `json:"igdb_id,omitempty"`
 }
+
+func (Game) TableName() string {
+	return "games"
+}

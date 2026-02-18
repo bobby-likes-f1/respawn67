@@ -14,9 +14,12 @@ func NewGamesRouter() *GamesRouter {
 	return &GamesRouter{service: services.NewGamesService()}
 }
 
-var gamesRouter = NewGamesRouter()
+var gamesRouter *GamesRouter
 
 func GetGamesRouter() *GamesRouter {
+	if gamesRouter == nil {
+		gamesRouter = NewGamesRouter() // Initialize only when needed
+	}
 	return gamesRouter
 }
 
