@@ -20,7 +20,7 @@ Sprint 1 focused on establishing the foundational infrastructure for our game re
 2. **As a user**, I want a Home Dashboard (/home) that acts as my daily gaming feed, highlighting currently trending games, breaking news, and entertaining community reviews so I stay connected to the culture.
 3. **As a completionist**, I want a Backlog Page (/backlog) where I can track, sort, and manage all the games I own or want to play.
 4. **As a user**, I want an interactive Games Directory (/games) featuring a dynamic top-rated carousel and paginated leaderboards so I can deeply explore the highest-scoring games of all time.
-5. **As a user**, I want to be able to sign up or login, and also open my account page where I can see my profile and relevant information.
+5. **As a user**, I want to be able to sign up or login, and also open my account page where I can see my profile and relevant information such as game activity, my reviews, wishlists, game lists etc.
 
 ---
 
@@ -83,13 +83,14 @@ Sprint 1 focused on establishing the foundational infrastructure for our game re
 
 ### #19 - Create login, signup pages
 **Status:** Open
-**Reason:** 
+**Reason:** ds
 
 ### #20 - Create /account page
 **Status:** Open
-**Reason:** 
+**Reason:** ds
 
 ---
 
-Frontend Demo Link - 
+Frontend Demo Link - https://www.youtube.com/watch?v=mcAVjKGIx9Q
+
 Backend Demo Link - https://www.youtube.com/watch?v=poRE-16YOn8
