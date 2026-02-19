@@ -83,11 +83,13 @@ Sprint 1 focused on establishing the foundational infrastructure for our game re
 
 ### #19 - Create login, signup pages
 **Status:** Open
-**Reason:** ds
+
+**Reason:** Issue scope for the other pages was larger than expected, need more time to complete this particular page
 
 ### #20 - Create /account page
 **Status:** Open
-**Reason:** ds
+
+**Reason:** Issue scope for the other pages was larger than expected, need more time to complete this particular page
 
 ---
 
