@@ -92,7 +92,3 @@ Sprint 1 focused on establishing the foundational infrastructure for our game re
 **Reason:** Issue scope for the other pages was larger than expected, need more time to complete this particular page
 
 ---
-
-Frontend Demo Link - https://www.youtube.com/watch?v=mcAVjKGIx9Q
-
-Backend Demo Link - https://www.youtube.com/watch?v=poRE-16YOn8
