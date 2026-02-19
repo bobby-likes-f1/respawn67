@@ -37,7 +37,7 @@ export default function LandingPage() {
       
       <section className="container mx-auto px-4 py-24 text-center space-y-8">
 
-        <h1 className="text-6xl md:text-8xl font-black tracking-tighter">
+        <h1 className="text-6xl md:text-8xl font-pixel tracking-tighter">
           Play it. Rate it. <span className="text-primary">Respawn.</span>
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
