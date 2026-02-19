@@ -130,7 +130,7 @@ export default function BacklogPage() {
           {processedGames.length > 0 ? (
             <div className={viewMode === "grid" 
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" 
-              : "flex flex-col gap-4"
+              : "flex flex-col gap-4 max-w-4xl mx-auto w-full"
             }>
               {processedGames.map((game) => (
                 <BacklogItem key={game.id} game={game} view={viewMode} />
@@ -160,29 +160,39 @@ function StatBox({ label, value }: { label: string, value: string }) {
 }
 
 function BacklogItem({ game, view }: { game: any, view: "grid" | "list" }) {
-  if (view === "list") {
+if (view === "list") {
     return (
-      <Card className="flex items-center p-3 gap-4 hover:bg-accent/50 transition-colors group">
-        <div className="w-12 h-16 rounded overflow-hidden shrink-0 bg-muted">
+      <Card className="flex flex-row items-center p-3 sm:p-4 gap-4 sm:gap-6 hover:bg-accent/50 transition-colors group text-left">
+        
+        <div className="w-12 sm:w-16 h-16 sm:h-24 rounded-md overflow-hidden shrink-0 bg-muted border shadow-sm">
           <img src={game.cover} alt={game.title} className="w-full h-full object-cover" />
         </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold truncate">{game.title}</h4>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-            <Badge variant="outline" className="text-[10px] py-0">{game.platform}</Badge>
-            <span className="capitalize">{game.status}</span>
-            <span>•</span>
-            <span>{game.progress}% complete</span>
+        
+        <div className="flex flex-col flex-1 min-w-0 justify-center">
+          <h4 className="font-bold text-base sm:text-lg truncate">{game.title}</h4>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground mt-1.5">
+            <Badge variant="outline" className="text-[10px] py-0 bg-background">{game.platform}</Badge>
+            <span className="capitalize font-medium text-foreground/80">{game.status}</span>
+            <span className="hidden sm:inline">•</span>
+            <span className="hidden sm:inline">{game.hoursPlayed}h / {game.hoursTotal}h est.</span>
           </div>
         </div>
-        <div className="hidden sm:block w-32">
+        
+        <div className="hidden md:flex flex-col w-32 lg:w-48 shrink-0 gap-1.5 px-4">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Progress</span>
+            <span className="font-medium text-foreground">{game.progress}%</span>
+          </div>
           <Progress value={game.progress} className="h-2" />
         </div>
-        <CardActions />
+        
+        <div className="shrink-0">
+          <CardActions />
+        </div>
+
       </Card>
     )
   }
-
   return (
     <Card className="group overflow-hidden flex flex-col h-full hover:ring-2 hover:ring-primary/50 transition-all">
       <div className="relative">
