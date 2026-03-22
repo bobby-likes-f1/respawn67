@@ -32,6 +32,7 @@ func addPlaylistRoutes(rg *gin.RouterGroup) {
 	playlistRoutes := rg.Group("/users/:userId/playlist")
 
 	playlistRoutes.GET("/", router.GetByUserID)
+	playlistRoutes.GET("/games", router.GetGamesByUserID)
 	playlistRoutes.POST("/", router.AddGame)
 	playlistRoutes.PUT("/:id", router.UpdateStatus)
 	playlistRoutes.DELETE("/:id", router.RemoveGame)
@@ -57,6 +58,28 @@ func (r *PlaylistRouter) GetByUserID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, entries)
+}
+
+func (r *PlaylistRouter) GetGamesByUserID(c *gin.Context) {
+	userIDStr := c.Param("userId")
+
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid user id",
+		})
+		return
+	}
+
+	games, err := r.service.GetGamesByUserID(uint(userID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, games)
 }
 
 func (r *PlaylistRouter) AddGame(c *gin.Context) {

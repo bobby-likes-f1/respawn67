@@ -18,6 +18,10 @@ func (s *PlaylistService) GetByUserID(userID uint) ([]models.Playlist, error) {
 	return s.repo.GetByUserID(userID)
 }
 
+func (s *PlaylistService) GetGamesByUserID(userID uint) ([]models.Game, error) {
+	return s.repo.GetGamesByUserID(userID)
+}
+
 func (s *PlaylistService) AddGame(entry models.Playlist) (models.Playlist, error) {
 	// Check if game is already in user's playlist
 	_, err := s.repo.FindByUserAndGame(entry.UserID, entry.GameID)
