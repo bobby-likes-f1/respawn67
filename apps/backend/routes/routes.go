@@ -29,6 +29,7 @@ func getRoutes() {
 	v1 := router.Group("/api/v1")
 	addUserRoutes(v1)
 	addGameRoutes(v1)
+	addPlaylistRoutes(v1)
 
 	// v2 := router.Group("/v2")
 	// addPingRoutes(v2)
