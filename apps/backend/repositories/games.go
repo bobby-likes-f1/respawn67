@@ -31,3 +31,18 @@ func (r *GamesRepository) GetGameByID(id uint) (models.Game, error) {
 	result := r.db.First(&game, id)
 	return game, result.Error
 }
+
+func (r *GamesRepository) UpdateGame(id uint, game models.Game) (models.Game, error) {
+	var existing models.Game
+	if result := r.db.First(&existing, id); result.Error != nil {
+		return existing, result.Error
+	}
+
+	result := r.db.Model(&existing).Updates(game)
+	return existing, result.Error
+}
+
+func (r *GamesRepository) DeleteGame(id uint) error {
+	result := r.db.Delete(&models.Game{}, id)
+	return result.Error
+}
