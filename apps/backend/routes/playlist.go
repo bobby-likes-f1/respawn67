@@ -29,19 +29,19 @@ func GetPlaylistRouter() *PlaylistRouter {
 func addPlaylistRoutes(rg *gin.RouterGroup) {
 	router := GetPlaylistRouter()
 
-	playlistRoutes := rg.Group("/users/:userId/playlist")
+	playlistRoutes := rg.Group("/users/:id/playlist")
 
 	playlistRoutes.GET("/", router.GetByUserID)
 	playlistRoutes.GET("/games", router.GetGamesByUserID)
 	playlistRoutes.POST("/", router.AddGame)
-	playlistRoutes.PUT("/:id", router.UpdateStatus)
-	playlistRoutes.DELETE("/:id", router.RemoveGame)
+	playlistRoutes.PUT("/:entryId", router.UpdateStatus)
+	playlistRoutes.DELETE("/:entryId", router.RemoveGame)
 }
 
 func (r *PlaylistRouter) GetByUserID(c *gin.Context) {
-	userIDStr := c.Param("userId")
+	idStr := c.Param("id")
 
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "invalid user id",
@@ -61,9 +61,9 @@ func (r *PlaylistRouter) GetByUserID(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) GetGamesByUserID(c *gin.Context) {
-	userIDStr := c.Param("userId")
+	idStr := c.Param("id")
 
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "invalid user id",
@@ -83,9 +83,9 @@ func (r *PlaylistRouter) GetGamesByUserID(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) AddGame(c *gin.Context) {
-	userIDStr := c.Param("userId")
+	idStr := c.Param("id")
 
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "invalid user id",
@@ -117,7 +117,7 @@ func (r *PlaylistRouter) AddGame(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) UpdateStatus(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("entryId")
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -151,7 +151,7 @@ func (r *PlaylistRouter) UpdateStatus(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) RemoveGame(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("entryId")
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {

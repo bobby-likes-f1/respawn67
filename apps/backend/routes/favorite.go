@@ -29,18 +29,18 @@ func GetFavoritesRouter() *FavoritesRouter {
 func addFavoritesRoutes(rg *gin.RouterGroup) {
 	router := GetFavoritesRouter()
 
-	favoritesRoutes := rg.Group("/users/:userId/favorites")
+	favoritesRoutes := rg.Group("/users/:id/favorites")
 
 	favoritesRoutes.GET("/", router.GetByUserID)
 	favoritesRoutes.GET("/games", router.GetGamesByUserID)
 	favoritesRoutes.POST("/", router.AddFavorite)
-	favoritesRoutes.DELETE("/:id", router.RemoveFavorite)
+	favoritesRoutes.DELETE("/:entryId", router.RemoveFavorite)
 }
 
 func (r *FavoritesRouter) GetByUserID(c *gin.Context) {
-	userIDStr := c.Param("userId")
+	idStr := c.Param("id")
 
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "invalid user id",
@@ -60,9 +60,9 @@ func (r *FavoritesRouter) GetByUserID(c *gin.Context) {
 }
 
 func (r *FavoritesRouter) GetGamesByUserID(c *gin.Context) {
-	userIDStr := c.Param("userId")
+	idStr := c.Param("id")
 
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "invalid user id",
@@ -82,9 +82,9 @@ func (r *FavoritesRouter) GetGamesByUserID(c *gin.Context) {
 }
 
 func (r *FavoritesRouter) AddFavorite(c *gin.Context) {
-	userIDStr := c.Param("userId")
+	idStr := c.Param("id")
 
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "invalid user id",
@@ -116,7 +116,7 @@ func (r *FavoritesRouter) AddFavorite(c *gin.Context) {
 }
 
 func (r *FavoritesRouter) RemoveFavorite(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("entryId")
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
