@@ -21,8 +21,8 @@ export function GameCard({ title, image, rating, platform }: GameCardProps) {
             className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
           />
           <div className="absolute top-2 right-2">
-            <Badge className="bg-black/60 backdrop-blur-md flex gap-1 items-center">
-              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+            <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50">
+              <Star className="w-3 h-3 fill-azure-400 text-azure-400" />
               {rating}
             </Badge>
           </div>

@@ -64,7 +64,7 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Button size="sm" className="hidden sm:flex gap-2 font-bold bg-emerald-600 hover:bg-emerald-700">
+              <Button size="sm" className="hidden sm:flex gap-2 font-bold bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white">
                 <Plus className="h-4 w-4" />
                 LOG GAME
               </Button>

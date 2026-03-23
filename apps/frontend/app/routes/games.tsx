@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GameCard } from "@/components/game-card";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import type { Route } from "./+types/games";
 
 export function meta({}: Route.MetaArgs) {
@@ -119,8 +119,8 @@ export default function GamesPage() {
           
           <div className="relative z-10 space-y-4 max-w-2xl">
             <div className="flex items-center gap-2">
-              <Badge className="bg-yellow-500 text-black font-bold hover:bg-yellow-400">Spotlight</Badge>
-              <Badge variant="secondary">⭐ {currentGame.rating}</Badge>
+              <Badge className="bg-azure-500 text-white font-bold hover:bg-azure-400">Spotlight</Badge>
+              <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50"><Star className="w-3 h-3 fill-azure-400 text-azure-400" />{currentGame.rating}</Badge>
               <div className="flex gap-1 ml-2">
                 {currentGame.platform.map((p) => (
                   <Badge key={p} className="bg-white/20 text-white border border-white/30 text-xs">{p}</Badge>
@@ -129,7 +129,7 @@ export default function GamesPage() {
             </div>
             <h2 className="text-5xl font-extrabold text-white tracking-tighter">{currentGame.title}</h2>
             <p className="text-slate-300 text-lg">{currentGame.description}</p>
-            <Button size="lg" className="mt-4 px-8 py-6 text-lg bg-emerald-600 hover:bg-emerald-700 font-bold">Read Review</Button>
+            <Button size="lg" className="mt-4 px-8 py-6 text-lg bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white font-bold">Read Review</Button>
           </div>
 
           {/* Navigation Buttons at edges */}
@@ -205,8 +205,8 @@ export default function GamesPage() {
                       <p className="text-xs text-white/80 uppercase tracking-wider">
                         {game.platform.join(", ")}
                       </p>
-                      <Badge className="bg-yellow-500 text-black font-bold text-xs">
-                        ⭐ {game.rating}
+                      <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50 text-xs">
+                        <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {game.rating}
                       </Badge>
                     </div>
                   </div>
@@ -248,8 +248,8 @@ export default function GamesPage() {
                     <h4 className="font-bold text-white">{game.title}</h4>
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-white/80">{game.platform.join(" • ")}</p>
-                      <Badge className="bg-yellow-500 text-black font-bold text-xs">
-                        ⭐ {game.rating}
+                      <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50 text-xs">
+                        <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {game.rating}
                       </Badge>
                     </div>
                   </div>
@@ -272,7 +272,7 @@ export default function GamesPage() {
                     />
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
                   </div>
-                  <p className="font-bold group-hover:text-primary transition-colors line-clamp-2 text-sm uppercase text-blue-500">Breaking News</p>
+                  <p className="font-bold group-hover:text-primary transition-colors line-clamp-2 text-sm uppercase text-azure-500">Breaking News</p>
                   <h4 className="text-md font-semibold leading-snug">{news.title}</h4>
                   <p className="text-xs text-muted-foreground line-clamp-2">{news.description}</p>
                   <p className="text-xs text-muted-foreground">{news.timeAgo} • By Staff Writer</p>
@@ -286,11 +286,11 @@ export default function GamesPage() {
             <h3 className="text-2xl font-bold tracking-tight">User Reviews</h3>
             <div className="space-y-4">
               {[1].map((i) => (
-                <Card key={i} className="bg-muted/30">
+                <Card key={i} className="bg-gradient-to-br from-abyss-800 to-abyss-900 border border-abyss-700 shadow-md hover:border-azure-500/30 transition-colors">
                   <CardHeader className="p-4">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-md">Hollow Knight</CardTitle>
-                      <Badge className="bg-green-600">6/10</Badge>
+                      <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50"><Star className="w-3 h-3 fill-azure-400 text-azure-400" />6/10</Badge>
                     </div>
                     <CardDescription>by @DeanBro</CardDescription>
                   </CardHeader>
@@ -302,11 +302,11 @@ export default function GamesPage() {
                 </Card>
               ))}
               {[1].map((i) => (
-                <Card key={i} className="bg-muted/30">
+                <Card key={i} className="bg-gradient-to-br from-abyss-800 to-abyss-900 border border-abyss-700 shadow-md hover:border-azure-500/30 transition-colors">
                   <CardHeader className="p-4">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-md">Hollow Knight</CardTitle>
-                      <Badge className="bg-green-600">10/10</Badge>
+                      <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50"><Star className="w-3 h-3 fill-azure-400 text-azure-400" />10/10</Badge>
                     </div>
                     <CardDescription>by @BobbyTheMemeLord</CardDescription>
                   </CardHeader>
