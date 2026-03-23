@@ -26,9 +26,14 @@ func (r *PlaylistRepository) Create(entry models.Playlist) (models.Playlist, err
 	return entry, result.Error
 }
 
-func (r *PlaylistRepository) Update(entry models.Playlist) (models.Playlist, error) {
-	result := r.db.Save(&entry)
-	return entry, result.Error
+func (r *PlaylistRepository) Update(id uint, status string) (models.Playlist, error) {
+	var entry models.Playlist
+	result := r.db.Model(&entry).Where("id = ?", id).Update("status", status)
+	if result.Error != nil {
+		return entry, result.Error
+	}
+	r.db.First(&entry, id)
+	return entry, nil
 }
 
 func (r *PlaylistRepository) Delete(id uint) error {
