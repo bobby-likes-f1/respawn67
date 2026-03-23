@@ -63,7 +63,7 @@ export default function BacklogPage() {
             <Button variant="outline" className="gap-2 flex-1 md:flex-none">
               <Dice5 className="w-4 h-4" /> Pick for Me
             </Button>
-            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 flex-1 md:flex-none">
+            <Button className="gap-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white flex-1 md:flex-none">
               <PlayCircle className="w-4 h-4" /> Add Game
             </Button>
           </div>
@@ -119,7 +119,7 @@ export default function BacklogPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-muted/50 p-1 flex-wrap h-auto">
           <TabsTrigger value="all">All Games</TabsTrigger>
-          <TabsTrigger value="playing" className="gap-2">Playing <Badge variant="secondary" className="px-1 py-0 h-5 text-[10px] rounded-sm bg-emerald-500/10 text-emerald-600">{BACKLOG_GAMES.filter(g=>g.status==="playing").length}</Badge></TabsTrigger>
+          <TabsTrigger value="playing" className="gap-2">Playing <Badge variant="secondary" className="px-1 py-0 h-5 text-[10px] rounded-sm bg-azure-500/10 text-azure-600">{BACKLOG_GAMES.filter(g=>g.status==="playing").length}</Badge></TabsTrigger>
           <TabsTrigger value="backlog">Up Next</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
           <TabsTrigger value="abandoned">Shelved</TabsTrigger>
@@ -162,7 +162,7 @@ function StatBox({ label, value }: { label: string, value: string }) {
 function BacklogItem({ game, view }: { game: any, view: "grid" | "list" }) {
 if (view === "list") {
     return (
-      <Card className="flex flex-row items-center p-3 sm:p-4 gap-4 sm:gap-6 hover:bg-accent/50 transition-colors group text-left">
+      <Card className="flex flex-row items-center p-3 sm:p-4 gap-4 sm:gap-6 bg-abyss-900 border-abyss-700 hover:bg-gradient-to-r hover:from-abyss-800 hover:to-abyss-900 hover:border-azure-500/30 hover:shadow-[0_0_15px_rgba(26,133,255,0.1)] transition-all group text-left">
         
         <div className="w-12 sm:w-16 h-16 sm:h-24 rounded-md overflow-hidden shrink-0 bg-muted border shadow-sm">
           <img src={game.cover} alt={game.title} className="w-full h-full object-cover" />
@@ -194,7 +194,7 @@ if (view === "list") {
     )
   }
   return (
-    <Card className="group overflow-hidden flex flex-col h-full hover:ring-2 hover:ring-primary/50 transition-all">
+    <Card className="group overflow-hidden flex flex-col h-full bg-abyss-900/50 hover:bg-gradient-to-br hover:from-abyss-800 hover:to-abyss-950 border border-abyss-700 hover:border-azure-500/50 hover:shadow-[0_0_15px_rgba(26,133,255,0.15)] transition-all">
       <div className="relative">
         <AspectRatio ratio={16 / 9} className="bg-muted">
           <img src={game.cover} alt={game.title} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" />
@@ -202,8 +202,8 @@ if (view === "list") {
         </AspectRatio>
         
         <div className="absolute top-2 right-2">
-          {game.status === 'playing' && <Badge className="bg-emerald-500 animate-pulse">Playing</Badge>}
-          {game.status === 'completed' && <Badge variant="secondary" className="bg-blue-500/20 text-blue-200 border-blue-500/50">Done</Badge>}
+          {game.status === 'playing' && <Badge className="bg-azure-500 animate-pulse">Playing</Badge>}
+          {game.status === 'completed' && <Badge variant="secondary" className="bg-azure-500/20 text-azure-200 border-azure-500/50">Done</Badge>}
           {game.priority === 'High' && game.status === 'backlog' && <Badge variant="destructive">High Priority</Badge>}
         </div>
 
@@ -227,11 +227,11 @@ if (view === "list") {
 
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground bg-muted/30 p-2 rounded-md">
-            <Clock className="w-3 h-3 text-blue-500" />
+            <Clock className="w-3 h-3 text-azure-500" />
             <span>{game.hoursPlayed}h played</span>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground bg-muted/30 p-2 rounded-md">
-            <Trophy className="w-3 h-3 text-yellow-500" />
+            <Trophy className="w-3 h-3 text-azure-400" />
             <span>{game.hoursTotal}h est.</span>
           </div>
         </div>

@@ -45,20 +45,20 @@ export default function LandingPage() {
         </p>
         
         <div className="flex justify-center gap-4">
-          <Button asChild size="xl" className="px-8 py-6 text-lg rounded-full">
+          <Button asChild size="xl" className="px-8 py-6 text-lg rounded-full bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_20px_rgba(26,133,255,0.5)] text-white">
             <Link to="/home">Get Started</Link>
           </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
           {[
-            { title: "Track Everything", color: "bg-emerald-100 dark:bg-emerald-900/20" },
-            { title: "Rate & Review", color: "bg-rose-100 dark:bg-rose-900/20" },
-            { title: "Curate Lists", color: "bg-orange-100 dark:bg-orange-900/20" }
+            { title: "Track Everything", color: "bg-gradient-to-br from-azure-900 to-abyss-900 border border-azure-500/30 shadow-lg shadow-azure-900/20" },
+            { title: "Rate & Review", color: "bg-gradient-to-br from-abyss-800 to-abyss-950 border border-abyss-600/50 shadow-lg shadow-abyss-950/50" },
+            { title: "Curate Lists", color: "bg-gradient-to-br from-azure-800 to-abyss-900 border border-azure-400/30 shadow-lg shadow-azure-800/20" }
           ].map((item, i) => (
-            <div key={i} className={`h-80 rounded-3xl ${item.color} flex flex-col justify-end p-6 text-left transition-transform hover:-translate-y-1`}>
-              <h3 className="text-2xl font-bold tracking-tight">{item.title}</h3>
-              <p className="text-muted-foreground">Call out a feature, benefit, or value that stands on its own.</p>
+            <div key={i} className={`h-80 rounded-3xl ${item.color} flex flex-col justify-end p-6 text-left transition-all hover:-translate-y-2 hover:shadow-xl`}>
+              <h3 className="text-2xl font-bold tracking-tight text-white mb-2">{item.title}</h3>
+              <p className="text-azure-100/80 leading-relaxed">Call out a feature, benefit, or value that stands on its own.</p>
             </div>
           ))}
         </div>
@@ -145,10 +145,10 @@ export default function LandingPage() {
 
 function FeatureCard({ icon, text }: { icon: React.ReactNode, text: string }) {
   return (
-    <Card className="bg-card/50 hover:bg-card transition-colors border-0 shadow-sm ring-1 ring-border/50">
+    <Card className="bg-abyss-800/40 hover:bg-abyss-800 transition-colors border border-abyss-700 shadow-md">
       <CardContent className="p-6 flex gap-4 items-start">
-        <div className="text-primary mt-1">{icon}</div>
-        <p className="text-sm leading-relaxed font-medium text-muted-foreground group-hover:text-foreground">
+        <div className="text-azure-400 mt-1">{icon}</div>
+        <p className="text-sm leading-relaxed font-medium text-azure-50 group-hover:text-white">
           {text}
         </p>
       </CardContent>
@@ -173,7 +173,7 @@ function ReviewItem({ game, year, user, avatar, rating, text, likes }: any) {
             <AvatarFallback className="text-[10px]">{avatar}</AvatarFallback>
           </Avatar>
           <span className="font-medium text-muted-foreground">{user}</span>
-          <div className="flex text-orange-500">
+          <div className="flex text-azure-500">
             {Array.from({ length: rating }).map((_, i) => (
               <Star key={i} className="w-3 h-3 fill-current" />
             ))}

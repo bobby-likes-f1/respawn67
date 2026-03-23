@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GameCard } from "@/components/game-card";
+import { Star } from "lucide-react";
 import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
@@ -29,10 +30,10 @@ export default function Home() {
         <section className="relative h-[450px] w-full overflow-hidden rounded-2xl bg-slate-900 flex items-end p-8 shadow-2xl">
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
           <div className="relative z-10 space-y-4 max-w-2xl">
-            <Badge className="bg-yellow-500 text-black font-bold hover:bg-yellow-400">Spotlight</Badge>
+            <Badge className="bg-azure-500 text-white font-bold hover:bg-azure-400">Spotlight</Badge>
             <h2 className="text-5xl font-extrabold text-white tracking-tighter">Elden Ring: Shadow of the Erdtree</h2>
             <p className="text-slate-300 text-lg">Return to the Lands Between and uncover the mysteries of Miquella in this massive expansion.</p>
-            <Button size="lg" className="mt-4 px-8 py-6 text-lg">Read Review</Button>
+            <Button size="lg" className="mt-4 px-8 py-6 text-lg bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white">Read Review</Button>
           </div>
         </section>
 
@@ -69,13 +70,13 @@ export default function Home() {
             <h3 className="text-2xl font-bold tracking-tight">Most Popular</h3>
             <div className="space-y-4">
               {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="flex items-center p-3 gap-4 hover:bg-accent/50 transition-colors cursor-pointer">
+                <Card key={i} className="flex items-center p-3 gap-4 bg-abyss-900 border-abyss-700 hover:bg-gradient-to-r hover:from-abyss-800 hover:to-abyss-900 hover:border-azure-500/30 hover:shadow-[0_0_15px_rgba(26,133,255,0.1)] transition-all cursor-pointer">
                   <span className="text-3xl font-black text-muted-foreground/20 w-8">0{i}</span>
                   <div className="flex-1">
                     <h4 className="font-bold">Trending Game {i}</h4>
                     <p className="text-xs text-muted-foreground">Action • RPG</p>
                   </div>
-                  <Badge variant="secondary">⭐ 4.8</Badge>
+                  <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50"><Star className="w-3 h-3 fill-azure-400 text-azure-400" />4.8</Badge>
                 </Card>
               ))}
             </div>
@@ -90,7 +91,7 @@ export default function Home() {
                   <div className="h-32 w-full bg-muted rounded-md mb-2 overflow-hidden">
                     <div className="w-full h-full bg-slate-800 group-hover:bg-slate-700 transition-colors" />
                   </div>
-                  <p className="font-bold group-hover:text-primary transition-colors line-clamp-2 text-sm uppercase text-blue-500">Breaking News</p>
+                  <p className="font-bold group-hover:text-primary transition-colors line-clamp-2 text-sm uppercase text-azure-500">Breaking News</p>
                   <h4 className="text-md font-semibold leading-snug">The biggest gaming announcements from this weekend's showcase.</h4>
                   <p className="text-xs text-muted-foreground">5 mins ago • By Staff Writer</p>
                 </div>
@@ -103,11 +104,11 @@ export default function Home() {
             <h3 className="text-2xl font-bold tracking-tight">User Reviews</h3>
             <div className="space-y-4">
               {[1, 2].map((i) => (
-                <Card key={i} className="bg-muted/30">
+                <Card key={i} className="bg-gradient-to-br from-abyss-800 to-abyss-900 border border-abyss-700 shadow-md hover:border-azure-500/30 transition-colors">
                   <CardHeader className="p-4">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-md">Cyberpunk 2077</CardTitle>
-                      <Badge className="bg-green-600">9/10</Badge>
+                      <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50"><Star className="w-3 h-3 fill-azure-400 text-azure-400" />9/10</Badge>
                     </div>
                     <CardDescription>by @NightCityRunner</CardDescription>
                   </CardHeader>
