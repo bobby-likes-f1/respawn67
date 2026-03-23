@@ -33,10 +33,7 @@ func (s *PlaylistService) AddGame(entry models.Playlist) (models.Playlist, error
 }
 
 func (s *PlaylistService) UpdateStatus(id uint, status string) (models.Playlist, error) {
-	entry := models.Playlist{}
-	entry.ID = id
-	entry.Status = status
-	return s.repo.Update(entry)
+	return s.repo.Update(id, status)
 }
 
 func (s *PlaylistService) RemoveGame(id uint) error {
