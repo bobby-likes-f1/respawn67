@@ -1,4 +1,5 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,6 +50,19 @@ export function meta({}: Route.MetaArgs) {
 // ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // TODO: replace with your real auth check once backend is integrated
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token);
+  }, []);
+
+  function handleGetStarted() {
+    navigate(isLoggedIn ? "/games" : "/login");
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <section className="container mx-auto px-4 py-24 text-center space-y-8">
@@ -62,11 +76,11 @@ export default function LandingPage() {
 
         <div className="flex justify-center gap-4">
           <Button
-            asChild
+            onClick={handleGetStarted}
             size="xl"
             className="px-8 py-6 text-lg rounded-full bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_20px_rgba(26,133,255,0.5)] text-white"
           >
-            <Link to="/games">Get Started</Link>
+            Get Started
           </Button>
         </div>
 
@@ -90,7 +104,7 @@ export default function LandingPage() {
           ].map((item, i) => (
             <div
               key={i}
-              className={`h-80 rounded-3xl ${item.color} flex flex-col justify-end p-6 text-left transition-all hover:-translate-y-2 hover:shadow-xl`}
+              className={`h-80 rounded-3xl ${item.color} flex flex-col justify-end p-6 text-left transition-all hover:-translate-y-2 hover:shadow-xl hover:ring-2 hover:ring-primary`}
             >
               <h3 className="text-2xl font-bold tracking-tight text-white mb-2">
                 {item.title}

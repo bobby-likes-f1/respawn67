@@ -63,7 +63,10 @@ export function Navbar() {
               <Button variant="ghost" asChild className="hidden sm:inline-flex">
                 <Link to="/login">Log In</Link>
               </Button>
-              <Button asChild>
+              <Button
+                asChild
+                className="bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white"
+              >
                 <Link to="/signup">Create Account</Link>
               </Button>
             </>

@@ -12,7 +12,7 @@ interface GameCardProps {
 
 export function GameCard({ title, image, rating, platform }: GameCardProps) {
   return (
-    <Card className="overflow-hidden group cursor-pointer transition-all hover:ring-2 hover:ring-primary">
+    <Card className="overflow-hidden group cursor-pointer transition-all hover:ring-2 hover:ring-primary bg-abyss-900 border-abyss-700">
       <CardContent className="p-0">
         <AspectRatio ratio={3 / 4}>
           <img
