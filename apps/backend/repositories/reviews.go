@@ -26,15 +26,18 @@ func (r *ReviewsRepository) GetReviewByID(id uint) (models.Review, error) {
 	return review, result.Error
 }
 
-func (r *ReviewsRepository) GetReviewsByUser(userID uint) ([]models.Review, error) {
+func (r *ReviewsRepository) GetReviews(userID *uint, gameID *uint) ([]models.Review, error) {
 	var reviews []models.Review
-	result := r.db.Where("user_id = ?", userID).Find(&reviews)
-	return reviews, result.Error
-}
 
-func (r *ReviewsRepository) GetReviewsByGame(gameID uint) ([]models.Review, error) {
-	var reviews []models.Review
-	result := r.db.Where("game_id = ?", gameID).Find(&reviews)
+	query := r.db
+	if userID != nil {
+		query = query.Where("user_id = ?", *userID)
+	}
+	if gameID != nil {
+		query = query.Where("game_id = ?", *gameID)
+	}
+
+	result := query.Find(&reviews)
 	return reviews, result.Error
 }
 

@@ -32,7 +32,7 @@ func addReviewRoutes(rg *gin.RouterGroup) {
 	reviews := rg.Group("/reviews")
 	reviews.POST("/", router.PostReview)
 	reviews.GET("/:id", router.GetReviewByID)
-	reviews.GET("/user/:user_id", router.GetReviewsByUser)
+	reviews.GET("/", router.GetReviews)
 	reviews.PUT("/user/:user_id/game/:game_id", router.UpdateReview)
 	reviews.DELETE("/user/:user_id/game/:game_id", router.DeleteReview)
 }
@@ -75,16 +75,33 @@ func (r *ReviewsRouter) GetReviewByID(c *gin.Context) {
 	c.JSON(http.StatusOK, review)
 }
 
-func (r *ReviewsRouter) GetReviewsByUser(c *gin.Context) {
-	idStr := c.Param("user_id")
+func (r *ReviewsRouter) GetReviews(c *gin.Context) {
+	userIDStr := c.Query("user_id")
+	gameIDStr := c.Query("game_id")
 
-	userID, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
-		return
+	var userID, gameID *uint
+
+	if userIDStr != "" {
+		id, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+			return
+		}
+		uid := uint(id)
+		userID = &uid
 	}
 
-	reviews, err := r.service.GetReviewsByUser(uint(userID))
+	if gameIDStr != "" {
+		id, err := strconv.Atoi(gameIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
+			return
+		}
+		gid := uint(id)
+		gameID = &gid
+	}
+
+	reviews, err := r.service.GetReviews(userID, gameID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return

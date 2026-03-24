@@ -21,12 +21,8 @@ func (s *ReviewsService) GetReviewByID(id uint) (models.Review, error) {
 	return s.repo.GetReviewByID(id)
 }
 
-func (s *ReviewsService) GetReviewsByUser(userID uint) ([]models.Review, error) {
-	return s.repo.GetReviewsByUser(userID)
-}
-
-func (s *ReviewsService) GetReviewsByGame(gameID uint) ([]models.Review, error) {
-	return s.repo.GetReviewsByGame(gameID)
+func (s *ReviewsService) GetReviews(userID *uint, gameID *uint) ([]models.Review, error) {
+	return s.repo.GetReviews(userID, gameID)
 }
 
 func (s *ReviewsService) UpdateReview(userID uint, gameID uint, review models.Review) (models.Review, error) {
