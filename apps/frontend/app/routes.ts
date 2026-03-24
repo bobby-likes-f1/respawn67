@@ -5,4 +5,5 @@ export default [
   route("home", "routes/home.tsx"),
   route("backlog", "routes/backlog.tsx"),
   route("games", "routes/games.tsx"),
+  route("account", "routes/account.tsx"),
 ] satisfies RouteConfig;
