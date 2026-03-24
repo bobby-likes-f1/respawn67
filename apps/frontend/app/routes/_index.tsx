@@ -1,15 +1,33 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Eye, Heart, Star, AlignLeft, Calendar, LayoutGrid, MessageSquare } from "lucide-react";
+import {
+  Eye,
+  Heart,
+  Star,
+  AlignLeft,
+  Calendar,
+  LayoutGrid,
+  MessageSquare,
+} from "lucide-react";
 import type { Route } from "./+types/_index";
 
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Respawn67 | Discover Video Games" },
-    { name: "description", content: "Rate, check and review your favorite video games." },
+    {
+      name: "description",
+      content: "Rate, check and review your favorite video games.",
+    },
   ];
 }
 
@@ -32,33 +50,68 @@ export function meta({}: Route.MetaArgs) {
 // ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // TODO: replace with your real auth check once backend is integrated
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token);
+  }, []);
+
+  function handleGetStarted() {
+    navigate(isLoggedIn ? "/games" : "/login");
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      
       <section className="container mx-auto px-4 py-24 text-center space-y-8">
-
         <h1 className="text-6xl md:text-8xl font-pixel tracking-tighter">
           Play it. Rate it. <span className="text-primary">Respawn.</span>
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          The ultimate social platform for video game lovers. Track your backlog, share your reviews, and discover your next obsession.
+          The ultimate social platform for video game lovers. Track your
+          backlog, share your reviews, and discover your next obsession.
         </p>
-        
+
         <div className="flex justify-center gap-4">
-          <Button asChild size="xl" className="px-8 py-6 text-lg rounded-full bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_20px_rgba(26,133,255,0.5)] text-white">
-            <Link to="/home">Get Started</Link>
+          <Button
+            onClick={handleGetStarted}
+            size="xl"
+            className="px-8 py-6 text-lg rounded-full bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_20px_rgba(26,133,255,0.5)] text-white"
+          >
+            Get Started
           </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
           {[
-            { title: "Track Everything", color: "bg-gradient-to-br from-azure-900 to-abyss-900 border border-azure-500/30 shadow-lg shadow-azure-900/20" },
-            { title: "Rate & Review", color: "bg-gradient-to-br from-abyss-800 to-abyss-950 border border-abyss-600/50 shadow-lg shadow-abyss-950/50" },
-            { title: "Curate Lists", color: "bg-gradient-to-br from-azure-800 to-abyss-900 border border-azure-400/30 shadow-lg shadow-azure-800/20" }
+            {
+              title: "Track Everything",
+              color:
+                "bg-gradient-to-br from-azure-900 to-abyss-900 border border-azure-500/30 shadow-lg shadow-azure-900/20",
+            },
+            {
+              title: "Rate & Review",
+              color:
+                "bg-gradient-to-br from-abyss-800 to-abyss-950 border border-abyss-600/50 shadow-lg shadow-abyss-950/50",
+            },
+            {
+              title: "Curate Lists",
+              color:
+                "bg-gradient-to-br from-azure-800 to-abyss-900 border border-azure-400/30 shadow-lg shadow-azure-800/20",
+            },
           ].map((item, i) => (
-            <div key={i} className={`h-80 rounded-3xl ${item.color} flex flex-col justify-end p-6 text-left transition-all hover:-translate-y-2 hover:shadow-xl`}>
-              <h3 className="text-2xl font-bold tracking-tight text-white mb-2">{item.title}</h3>
-              <p className="text-azure-100/80 leading-relaxed">Call out a feature, benefit, or value that stands on its own.</p>
+            <div
+              key={i}
+              className={`h-80 rounded-3xl ${item.color} flex flex-col justify-end p-6 text-left transition-all hover:-translate-y-2 hover:shadow-xl hover:ring-2 hover:ring-primary`}
+            >
+              <h3 className="text-2xl font-bold tracking-tight text-white mb-2">
+                {item.title}
+              </h3>
+              <p className="text-azure-100/80 leading-relaxed">
+                Call out a feature, benefit, or value that stands on its own.
+              </p>
             </div>
           ))}
         </div>
@@ -66,52 +119,78 @@ export default function LandingPage() {
 
       <section id="features" className="bg-muted/40 py-20">
         <div className="container mx-auto px-4 space-y-8">
-          <h2 className="text-sm font-bold tracking-widest uppercase text-muted-foreground">Respawn67 lets you...</h2>
-          
+          <h2 className="text-sm font-bold tracking-widest uppercase text-muted-foreground">
+            Respawn67 lets you...
+          </h2>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <FeatureCard icon={<Eye />} text="Keep track of every game you've ever played (or start from today)." />
-            <FeatureCard icon={<Heart />} text="Show some love for your favorite games, lists, and reviews with a 'like'." />
-            <FeatureCard icon={<AlignLeft />} text="Write and share reviews, and follow friends to read theirs." />
-            <FeatureCard icon={<Star />} text="Rate each game on a five-star scale to record your reaction." />
-            <FeatureCard icon={<Calendar />} text="Keep a diary of your gaming history and see your stats over time." />
-            <FeatureCard icon={<LayoutGrid />} text="Compile and share lists of games on any topic." />
+            <FeatureCard
+              icon={<Eye />}
+              text="Keep track of every game you've ever played (or start from today)."
+            />
+            <FeatureCard
+              icon={<Heart />}
+              text="Show some love for your favorite games, lists, and reviews with a 'like'."
+            />
+            <FeatureCard
+              icon={<AlignLeft />}
+              text="Write and share reviews, and follow friends to read theirs."
+            />
+            <FeatureCard
+              icon={<Star />}
+              text="Rate each game on a five-star scale to record your reaction."
+            />
+            <FeatureCard
+              icon={<Calendar />}
+              text="Keep a diary of your gaming history and see your stats over time."
+            />
+            <FeatureCard
+              icon={<LayoutGrid />}
+              text="Compile and share lists of games on any topic."
+            />
           </div>
         </div>
       </section>
 
-      <section id="reviews" className="container mx-auto px-4 py-20 grid grid-cols-1 lg:grid-cols-12 gap-12">
-        
+      <section
+        id="reviews"
+        className="container mx-auto px-4 py-20 grid grid-cols-1 lg:grid-cols-12 gap-12"
+      >
         <div className="lg:col-span-7 space-y-8">
           <div className="flex justify-between items-baseline border-b pb-2">
-            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Popular Reviews This Week</h3>
-            <span className="text-xs text-muted-foreground cursor-pointer hover:text-primary">More</span>
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Popular Reviews This Week
+            </h3>
+            <span className="text-xs text-muted-foreground cursor-pointer hover:text-primary">
+              More
+            </span>
           </div>
 
           <div className="space-y-8">
-            <ReviewItem 
-              game="Elden Ring" 
-              year="2022" 
-              user="MaleniaBlade" 
+            <ReviewItem
+              game="Elden Ring"
+              year="2022"
+              user="MaleniaBlade"
               avatar="M"
               rating={5}
               text="I have never known defeat. Until I tried to beat the camera in this boss fight. 10/10 would die again."
               likes="12k"
             />
             <Separator />
-            <ReviewItem 
-              game="Hollow Knight" 
-              year="2017" 
-              user="ThePaleKing" 
+            <ReviewItem
+              game="Hollow Knight"
+              year="2017"
+              user="ThePaleKing"
               avatar="P"
               rating={5}
               text="No cost too great. No mind to think. No voice to cry suffering. Just pure platforming perfection."
               likes="8.4k"
             />
             <Separator />
-            <ReviewItem 
-              game="Cyberpunk 2077" 
-              year="2020" 
-              user="JohnnyS" 
+            <ReviewItem
+              game="Cyberpunk 2077"
+              year="2020"
+              user="JohnnyS"
               avatar="J"
               rating={4}
               text="Wake up samurai, we have a city to burn. Or at least render properly now that the patches are out."
@@ -122,19 +201,37 @@ export default function LandingPage() {
 
         <div className="lg:col-span-5 space-y-8">
           <div className="flex justify-between items-baseline border-b pb-2">
-            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Popular Lists</h3>
-            <span className="text-xs text-muted-foreground cursor-pointer hover:text-primary">More</span>
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Popular Lists
+            </h3>
+            <span className="text-xs text-muted-foreground cursor-pointer hover:text-primary">
+              More
+            </span>
           </div>
 
           <div className="space-y-6">
-            <ListItem title="Games that made me cry" user="sad_gamer" count={12} likes="4k" />
-            <ListItem title="The absolute worst endings ever" user="plot_twist" count={8} likes="2.1k" />
-            <ListItem title="Relaxing Sims for Sunday mornings" user="cozy_vibes" count={24} likes="10k" />
+            <ListItem
+              title="Games that made me cry"
+              user="sad_gamer"
+              count={12}
+              likes="4k"
+            />
+            <ListItem
+              title="The absolute worst endings ever"
+              user="plot_twist"
+              count={8}
+              likes="2.1k"
+            />
+            <ListItem
+              title="Relaxing Sims for Sunday mornings"
+              user="cozy_vibes"
+              count={24}
+              likes="10k"
+            />
           </div>
         </div>
-
       </section>
-      
+
       <footer className="border-t py-12 text-center text-muted-foreground text-sm">
         <p>&copy; 2026 Respawn67. Built with shadcn/ui.</p>
       </footer>
@@ -142,8 +239,7 @@ export default function LandingPage() {
   );
 }
 
-
-function FeatureCard({ icon, text }: { icon: React.ReactNode, text: string }) {
+function FeatureCard({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <Card className="bg-abyss-800/40 hover:bg-abyss-800 transition-colors border border-abyss-700 shadow-md">
       <CardContent className="p-6 flex gap-4 items-start">
@@ -160,13 +256,13 @@ function ReviewItem({ game, year, user, avatar, rating, text, likes }: any) {
   return (
     <div className="flex gap-4">
       <div className="w-16 h-24 bg-muted rounded-sm shrink-0 shadow-sm" />
-      
+
       <div className="space-y-2 w-full">
         <div className="flex items-baseline gap-2">
           <h4 className="font-bold text-lg">{game}</h4>
           <span className="text-muted-foreground text-sm">{year}</span>
         </div>
-        
+
         <div className="flex items-center gap-2 text-sm">
           <Avatar className="w-5 h-5">
             <AvatarImage src="" />
@@ -196,13 +292,14 @@ function ListItem({ title, user, count, likes }: any) {
   return (
     <div className="group cursor-pointer">
       <div className="flex h-32 w-full gap-1 mb-2 overflow-hidden rounded-md border border-border/50">
-
-         <div className="flex-1 bg-muted group-hover:bg-muted/80 transition-colors" />
-         <div className="flex-1 bg-muted/80 group-hover:bg-muted/60 transition-colors" />
-         <div className="flex-1 bg-muted/60 group-hover:bg-muted/40 transition-colors" />
-         <div className="flex-1 bg-muted/40 group-hover:bg-muted/20 transition-colors" />
+        <div className="flex-1 bg-muted group-hover:bg-muted/80 transition-colors" />
+        <div className="flex-1 bg-muted/80 group-hover:bg-muted/60 transition-colors" />
+        <div className="flex-1 bg-muted/60 group-hover:bg-muted/40 transition-colors" />
+        <div className="flex-1 bg-muted/40 group-hover:bg-muted/20 transition-colors" />
       </div>
-      <h4 className="font-bold leading-tight group-hover:text-primary transition-colors">{title}</h4>
+      <h4 className="font-bold leading-tight group-hover:text-primary transition-colors">
+        {title}
+      </h4>
       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
         <Avatar className="w-4 h-4">
           <AvatarFallback className="text-[9px]">U</AvatarFallback>
