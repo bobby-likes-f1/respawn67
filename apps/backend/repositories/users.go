@@ -46,3 +46,9 @@ func (r *UsersRepository) DeleteUser(id uint) error {
 	result := r.db.Delete(&models.User{}, id)
 	return result.Error
 }
+
+func (r *UsersRepository) FindByEmail(email string) (models.User, error) {
+	var user models.User
+	result := r.db.Where("email = ?", email).First(&user)
+	return user, result.Error
+}

@@ -7,7 +7,7 @@ type User struct {
 	ID           uint   `json:"id"`
 	Username     string `json:"username"      gorm:"size:50;not null;unique"`
 	Email        string `json:"email"         gorm:"size:255;not null;unique"`
-	PasswordHash string `json:"password_hash" gorm:"not null"`
+	PasswordHash string `json:"-"             gorm:"not null"`
 }
 
 func (User) TableName() string {
