@@ -34,13 +34,17 @@ func addGameRoutes(rg *gin.RouterGroup) {
 	gamesRoutes.GET("/", router.GetAll)
 	gamesRoutes.GET("/:id", router.GetGameByID)
 	gamesRoutes.POST("/", router.PostGames)
+	gamesRoutes.PUT("/:id", router.UpdateGame)
+	gamesRoutes.DELETE("/:id", router.DeleteGame)
 }
 
 func (r *GamesRouter) GetAll(c *gin.Context) {
 	games, err := r.service.GetAll()
 
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+		})
 		return
 	}
 
@@ -52,9 +56,7 @@ func (r *GamesRouter) GetGameByID(c *gin.Context) {
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid game id",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
 		return
 	}
 
@@ -88,4 +90,51 @@ func (r *GamesRouter) PostGames(c *gin.Context) {
 		return
 	}
 	c.IndentedJSON(http.StatusCreated, newGame)
+}
+
+func (r *GamesRouter) UpdateGame(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
+		return
+	}
+
+	var updatedGame models.Game
+	if err := c.ShouldBindJSON(&updatedGame); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request body",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	game, err := r.service.UpdateGame(uint(id), updatedGame)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, game)
+}
+
+func (r *GamesRouter) DeleteGame(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid game id",
+		})
+		return
+	}
+
+	if err := r.service.DeleteGame(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "game deleted successfully"})
 }
