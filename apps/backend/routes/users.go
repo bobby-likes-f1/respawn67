@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"respawn67/models"
 	"respawn67/services"
+	"respawn67/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -66,6 +67,10 @@ func (r *UsersRouter) GetUserByID(c *gin.Context) {
 }
 
 func (r *UsersRouter) PostUser(c *gin.Context) {
+	if !utils.RequireAuth(c) {
+		return
+	}
+
 	var newUser models.User
 
 	if err := c.ShouldBindJSON(&newUser); err != nil {
@@ -86,6 +91,10 @@ func (r *UsersRouter) PostUser(c *gin.Context) {
 }
 
 func (r *UsersRouter) UpdateUser(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
@@ -113,6 +122,10 @@ func (r *UsersRouter) UpdateUser(c *gin.Context) {
 }
 
 func (r *UsersRouter) DeleteUser(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)

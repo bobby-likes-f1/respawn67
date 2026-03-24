@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"respawn67/models"
 	"respawn67/services"
+	"respawn67/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -85,6 +86,10 @@ func (r *PlaylistRouter) GetGamesByUserID(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) AddGame(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	userID, err := strconv.Atoi(idStr)
@@ -119,6 +124,10 @@ func (r *PlaylistRouter) AddGame(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) UpdateStatus(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("entryId")
 
 	id, err := strconv.Atoi(idStr)
@@ -153,6 +162,10 @@ func (r *PlaylistRouter) UpdateStatus(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) UpdateStatusByGame(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("id")
 	userID, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -185,6 +198,10 @@ func (r *PlaylistRouter) UpdateStatusByGame(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) RemoveGame(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("entryId")
 
 	id, err := strconv.Atoi(idStr)
@@ -207,6 +224,10 @@ func (r *PlaylistRouter) RemoveGame(c *gin.Context) {
 }
 
 func (r *PlaylistRouter) RemoveByGame(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	userID, err := strconv.Atoi(idStr)

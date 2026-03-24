@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"respawn67/models"
 	"respawn67/services"
+	"respawn67/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -83,6 +84,10 @@ func (r *FavoritesRouter) GetGamesByUserID(c *gin.Context) {
 }
 
 func (r *FavoritesRouter) AddFavorite(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	userID, err := strconv.Atoi(idStr)
@@ -117,6 +122,10 @@ func (r *FavoritesRouter) AddFavorite(c *gin.Context) {
 }
 
 func (r *FavoritesRouter) RemoveFavorite(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("entryId")
 
 	id, err := strconv.Atoi(idStr)
@@ -139,6 +148,10 @@ func (r *FavoritesRouter) RemoveFavorite(c *gin.Context) {
 }
 
 func (r *FavoritesRouter) RemoveByGame(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	userID, err := strconv.Atoi(idStr)
