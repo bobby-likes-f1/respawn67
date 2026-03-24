@@ -36,6 +36,14 @@ func (s *PlaylistService) UpdateStatus(id uint, status string) (models.Playlist,
 	return s.repo.Update(id, status)
 }
 
+func (s *PlaylistService) UpdateStatusByUserAndGame(userID uint, gameID uint, status string) (models.Playlist, error) {
+	return s.repo.UpdateByUserAndGame(userID, gameID, status)
+}
+
 func (s *PlaylistService) RemoveGame(id uint) error {
 	return s.repo.Delete(id)
+}
+
+func (s *PlaylistService) RemoveByUserAndGame(userID uint, gameID uint) error {
+	return s.repo.DeleteByUserAndGame(userID, gameID)
 }

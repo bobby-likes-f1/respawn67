@@ -35,7 +35,9 @@ func addPlaylistRoutes(rg *gin.RouterGroup) {
 	playlistRoutes.GET("/games", router.GetGamesByUserID)
 	playlistRoutes.POST("/", router.AddGame)
 	playlistRoutes.PUT("/:entryId", router.UpdateStatus)
+	playlistRoutes.PUT("/game/:gameId", router.UpdateStatusByGame)
 	playlistRoutes.DELETE("/:entryId", router.RemoveGame)
+	playlistRoutes.DELETE("/game/:gameId", router.RemoveByGame)
 }
 
 func (r *PlaylistRouter) GetByUserID(c *gin.Context) {
@@ -150,6 +152,38 @@ func (r *PlaylistRouter) UpdateStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, entry)
 }
 
+func (r *PlaylistRouter) UpdateStatusByGame(c *gin.Context) {
+	idStr := c.Param("id")
+	userID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+		return
+	}
+
+	gameIDStr := c.Param("gameId")
+	gameID, err := strconv.Atoi(gameIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
+		return
+	}
+
+	var body struct {
+		Status string `json:"status"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body", "error": err.Error()})
+		return
+	}
+
+	entry, err := r.service.UpdateStatusByUserAndGame(uint(userID), uint(gameID), body.Status)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "game not found in playlist"})
+		return
+	}
+
+	c.JSON(http.StatusOK, entry)
+}
+
 func (r *PlaylistRouter) RemoveGame(c *gin.Context) {
 	idStr := c.Param("entryId")
 
@@ -170,4 +204,36 @@ func (r *PlaylistRouter) RemoveGame(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "removed from playlist"})
+}
+
+func (r *PlaylistRouter) RemoveByGame(c *gin.Context) {
+	idStr := c.Param("id")
+
+	userID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid user id",
+		})
+		return
+	}
+
+	gameIDStr := c.Param("gameId")
+
+	gameID, err := strconv.Atoi(gameIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid game id",
+		})
+		return
+	}
+
+	err = r.service.RemoveByUserAndGame(uint(userID), uint(gameID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "game not found in playlist",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "game removed from playlist"})
 }

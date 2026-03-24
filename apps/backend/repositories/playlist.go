@@ -36,15 +36,33 @@ func (r *PlaylistRepository) Update(id uint, status string) (models.Playlist, er
 	return entry, nil
 }
 
+func (r *PlaylistRepository) UpdateByUserAndGame(userID uint, gameID uint, status string) (models.Playlist, error) {
+	var entry models.Playlist
+	result := r.db.Model(&entry).Where("user_id = ? AND game_id = ?", userID, gameID).Update("status", status)
+	if result.RowsAffected == 0 {
+		return entry, gorm.ErrRecordNotFound
+	}
+	r.db.Where("user_id = ? AND game_id = ?", userID, gameID).First(&entry)
+	return entry, nil
+}
+
 func (r *PlaylistRepository) Delete(id uint) error {
-	result := r.db.Delete(&models.Playlist{}, id)
+	result := r.db.Unscoped().Delete(&models.Playlist{}, id)
+	return result.Error
+}
+
+func (r *PlaylistRepository) DeleteByUserAndGame(userID uint, gameID uint) error {
+	result := r.db.Unscoped().Where("user_id = ? AND game_id = ?", userID, gameID).Delete(&models.Playlist{})
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
 	return result.Error
 }
 
 func (r *PlaylistRepository) GetGamesByUserID(userID uint) ([]models.Game, error) {
 	var games []models.Game
 	result := r.db.Raw(
-		"SELECT games.* FROM games INNER JOIN playlists ON playlists.game_id = games.id WHERE playlists.user_id = ?",
+		"SELECT games.* FROM games INNER JOIN playlists ON playlists.game_id = games.id WHERE playlists.user_id = ? AND playlists.deleted_at IS NULL AND games.deleted_at IS NULL",
 		userID,
 	).Scan(&games)
 	return games, result.Error

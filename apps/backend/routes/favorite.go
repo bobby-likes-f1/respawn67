@@ -35,6 +35,7 @@ func addFavoritesRoutes(rg *gin.RouterGroup) {
 	favoritesRoutes.GET("/games", router.GetGamesByUserID)
 	favoritesRoutes.POST("/", router.AddFavorite)
 	favoritesRoutes.DELETE("/:entryId", router.RemoveFavorite)
+	favoritesRoutes.DELETE("/game/:gameId", router.RemoveByGame)
 }
 
 func (r *FavoritesRouter) GetByUserID(c *gin.Context) {
@@ -135,4 +136,36 @@ func (r *FavoritesRouter) RemoveFavorite(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "removed from favorites"})
+}
+
+func (r *FavoritesRouter) RemoveByGame(c *gin.Context) {
+	idStr := c.Param("id")
+
+	userID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid user id",
+		})
+		return
+	}
+
+	gameIDStr := c.Param("gameId")
+
+	gameID, err := strconv.Atoi(gameIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid game id",
+		})
+		return
+	}
+
+	err = r.service.RemoveByUserAndGame(uint(userID), uint(gameID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "game not found in favorites",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "game removed from favorites"})
 }

@@ -35,3 +35,7 @@ func (s *FavoritesService) AddFavorite(entry models.Favorite) (models.Favorite, 
 func (s *FavoritesService) RemoveFavorite(id uint) error {
 	return s.repo.Delete(id)
 }
+
+func (s *FavoritesService) RemoveByUserAndGame(userID uint, gameID uint) error {
+	return s.repo.DeleteByUserAndGame(userID, gameID)
+}

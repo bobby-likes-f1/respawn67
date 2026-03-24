@@ -27,7 +27,15 @@ func (r *FavoritesRepository) Create(entry models.Favorite) (models.Favorite, er
 }
 
 func (r *FavoritesRepository) Delete(id uint) error {
-	result := r.db.Delete(&models.Favorite{}, id)
+	result := r.db.Unscoped().Delete(&models.Favorite{}, id)
+	return result.Error
+}
+
+func (r *FavoritesRepository) DeleteByUserAndGame(userID uint, gameID uint) error {
+	result := r.db.Unscoped().Where("user_id = ? AND game_id = ?", userID, gameID).Delete(&models.Favorite{})
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
 	return result.Error
 }
 
@@ -40,7 +48,7 @@ func (r *FavoritesRepository) FindByUserAndGame(userID uint, gameID uint) (model
 func (r *FavoritesRepository) GetGamesByUserID(userID uint) ([]models.Game, error) {
 	var games []models.Game
 	result := r.db.Raw(
-		"SELECT games.* FROM games INNER JOIN favorites ON favorites.game_id = games.id WHERE favorites.user_id = ?",
+		"SELECT games.* FROM games INNER JOIN favorites ON favorites.game_id = games.id WHERE favorites.user_id = ? AND favorites.deleted_at IS NULL AND games.deleted_at IS NULL",
 		userID,
 	).Scan(&games)
 	return games, result.Error
