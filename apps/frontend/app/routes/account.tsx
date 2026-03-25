@@ -536,7 +536,7 @@ export default function AccountPage() {
               <div className="lg:col-span-8 space-y-10">
                 <section>
                   <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-4">
-                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Favorite Games</h3>
+                    <h3 className="text-sm font-medium text-white uppercase tracking-wider">Favorite Games</h3>
                     <span className="text-xs text-muted-foreground">Remove favorites from here</span>
                   </div>
                   {favorites.length > 0 ? (
@@ -553,8 +553,8 @@ export default function AccountPage() {
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                          <img src={changeImageSize(game.cover_image_url, "cover_big")} alt={game.title} className="w-full h-full object-cover opacity-70" />
-                          <div className="absolute inset-0 bg-black/35 flex items-end p-2">
+                          <img src={changeImageSize(game.cover_image_url, "cover_big")} alt={game.title} className="w-full h-full object-cover opacity-100" />
+                          <div className="absolute inset-0 bg-black/10 flex items-end p-2">
                             <p className="text-azure-50 font-medium text-xs sm:text-sm line-clamp-2">{game.title}</p>
                           </div>
                         </div>
@@ -567,7 +567,7 @@ export default function AccountPage() {
 
                 <section>
                   <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-4">
-                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Recent Activity</h3>
+                    <h3 className="text-sm font-medium text-white uppercase tracking-wider">Recent Activity</h3>
                     <span className="text-xs text-muted-foreground">Latest reviews</span>
                   </div>
                   {recentActivity.length > 0 ? (
@@ -578,9 +578,9 @@ export default function AccountPage() {
                             <img
                               src={changeImageSize(activity.coverImageUrl, "cover_big")}
                               alt={activity.game}
-                              className="w-full h-full object-cover opacity-75"
+                              className="w-full h-full object-cover opacity-100"
                             />
-                            <div className="absolute inset-0 bg-black/35 flex items-end p-2">
+                            <div className="absolute inset-0 bg-black/10 flex items-end p-2">
                               <p className="text-azure-50 font-medium text-xs sm:text-sm line-clamp-2">{activity.game}</p>
                             </div>
                           </div>
