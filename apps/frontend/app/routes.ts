@@ -8,4 +8,6 @@ export default [
   route("backlog", "routes/backlog.tsx"),
   route("games", "routes/games.tsx"),
   route("account", "routes/account.tsx"),
+  route("lists", "routes/lists.tsx"),
+  route("lists/:id", "routes/lists.$id.tsx"),
 ] satisfies RouteConfig;
