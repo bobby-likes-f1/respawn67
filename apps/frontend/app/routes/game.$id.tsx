@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Star, Eye, Heart, ListPlus, LayoutGrid } from "lucide-react";
+import { Star, Eye, Heart, ListPlus, LayoutGrid, Clock } from "lucide-react";
 import { type LoaderFunctionArgs, useLoaderData } from "react-router";
 
 const USE_BACKEND_API = false;
@@ -17,6 +17,8 @@ const MOCK_GAMES_DB: Record<string, any> = {
     posterImage: "https://images.igdb.com/igdb/image/upload/t_1080p/co65ac.webp",
     genres: ["SCI-FI", "ADVENTURE", "MYSTERY"],
     platforms: ["PC", "PS5", "SWITCH"],
+    rating: 9.8,
+    timeToBeat: 22,
     stats: { views: "842K", lists: "215K", likes: "401K" }
   },
 };
@@ -116,6 +118,28 @@ export default function GameDetailsPage() {
 
           <div className="flex flex-col gap-5 border-t border-abyss-800/60 pt-6">
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-6">
+              <span className="uppercase text-[10px] sm:text-xs tracking-[0.2em] font-bold text-muted-foreground sm:w-20 shrink-0 text-center xl:text-left text-azure-500/80 hover:text-azure-400 cursor-pointer transition-colors">Rating</span>
+              <div className="flex flex-wrap items-center justify-center xl:justify-start gap-2">
+                {uiData.rating && (
+                  <Badge variant="outline" className="text-[10px] sm:text-xs py-0.5 px-3 bg-abyss-900 border-abyss-800 text-muted-foreground hover:border-azure-500 hover:text-azure-400 cursor-pointer font-medium shadow-sm transition-colors flex gap-1 items-center">
+                    <Star className="w-3 h-3 fill-azure-400 text-azure-400" />
+                    {uiData.rating}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-6 border-t border-abyss-800/20 sm:border-0 pt-4 sm:pt-0">
+              <span className="uppercase text-[10px] sm:text-xs tracking-[0.2em] font-bold text-muted-foreground sm:w-20 shrink-0 text-center xl:text-left text-azure-500/80 hover:text-azure-400 cursor-pointer transition-colors">Time to Beat</span>
+              <div className="flex flex-wrap items-center justify-center xl:justify-start gap-2">
+                {uiData.timeToBeat && (
+                  <Badge variant="outline" className="text-[10px] sm:text-xs py-0.5 px-3 bg-abyss-900 border-abyss-800 text-muted-foreground hover:border-azure-500 hover:text-azure-400 cursor-pointer font-medium shadow-sm transition-colors flex gap-1 items-center">
+                    <Clock className="w-3 h-3 text-azure-400" />
+                    {uiData.timeToBeat}h
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-6 border-t border-abyss-800/20 sm:border-0 pt-4 sm:pt-0">
               <span className="uppercase text-[10px] sm:text-xs tracking-[0.2em] font-bold text-muted-foreground sm:w-20 shrink-0 text-center xl:text-left text-azure-500/80 hover:text-azure-400 cursor-pointer transition-colors">Genres</span>
               <div className="flex flex-wrap items-center justify-center xl:justify-start gap-2">
                 {uiData.genres?.map((g: string) => (
