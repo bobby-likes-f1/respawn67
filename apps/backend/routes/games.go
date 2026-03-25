@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"respawn67/models"
 	"respawn67/services"
+	"respawn67/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -72,6 +73,10 @@ func (r *GamesRouter) GetGameByID(c *gin.Context) {
 }
 
 func (r *GamesRouter) PostGames(c *gin.Context) {
+	if !utils.RequireAuth(c) {
+		return
+	}
+
 	var newGame models.Game
 
 	if err := c.ShouldBindJSON(&newGame); err != nil {
@@ -93,6 +98,10 @@ func (r *GamesRouter) PostGames(c *gin.Context) {
 }
 
 func (r *GamesRouter) UpdateGame(c *gin.Context) {
+	if !utils.RequireAuth(c) {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
@@ -121,6 +130,10 @@ func (r *GamesRouter) UpdateGame(c *gin.Context) {
 }
 
 func (r *GamesRouter) DeleteGame(c *gin.Context) {
+	if !utils.RequireAuth(c) {
+		return
+	}
+
 	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)

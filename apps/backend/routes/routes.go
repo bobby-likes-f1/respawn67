@@ -22,17 +22,12 @@ func Run() {
 	_ = router.Run(":" + port)
 }
 
-// getRoutes will create our routes of our entire application
-// this way every group of routes can be defined in their own file
-// so this one won't be so messy
 func getRoutes() {
 	v1 := router.Group("/api/v1")
+	addAuthRoutes(v1)
 	addUserRoutes(v1)
 	addGameRoutes(v1)
 	addPlaylistRoutes(v1)
 	addFavoritesRoutes(v1)
-	//addRatingRoutes(v1)
-
-	// v2 := router.Group("/v2")
-	// addPingRoutes(v2)
+	addReviewRoutes(v1)
 }
