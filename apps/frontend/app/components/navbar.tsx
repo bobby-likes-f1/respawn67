@@ -23,6 +23,7 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLandingPage = location.pathname === "/";
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/signup";
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
@@ -40,10 +41,11 @@ export function Navbar() {
         { title: "Features", href: "/#features" },
         { title: "Reviews", href: "/#reviews" },
         { title: "Games", href: "/games" },
-        { title: "About", href: "/about" },
+        { title: "Catalogue", href: "/catalogue" },
       ]
     : [
         { title: "Games", href: "/games" },
+        { title: "Catalogue", href: "/catalogue" },
         { title: "Backlog", href: "/backlog" },
         { title: "Lists", href: "/lists" },
         { title: "Community", href: "/community" },
@@ -96,14 +98,6 @@ export function Navbar() {
             <>
               {sessionUser ? (
                 <>
-                  <Button
-                    size="sm"
-                    className="hidden sm:flex gap-2 font-bold bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white"
-                  >
-                    <Plus className="h-4 w-4" />
-                    LOG GAME
-                  </Button>
-
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="hidden sm:inline-flex items-center gap-2 px-2">
@@ -136,7 +130,7 @@ export function Navbar() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
-              ) : (
+              ) : !isAuthPage ? (
                 <>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -160,7 +154,8 @@ export function Navbar() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
-              )}
+              ) : null
+              }
             </>
           )}
 

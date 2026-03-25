@@ -266,6 +266,14 @@ export default function AccountPage() {
   }, [reviews]);
 
   const maxRatingCount = Math.max(...ratingDistribution.map((r) => r.count), 1);
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) {
+      return "0.0";
+    }
+
+    const total = reviews.reduce((sum, review) => sum + review.score, 0);
+    return (total / reviews.length).toFixed(1);
+  }, [reviews]);
 
   const stats = {
     games: backlogPreview.length,
@@ -605,20 +613,29 @@ export default function AccountPage() {
                     <span className="text-xs text-azure-500 font-bold">{stats.reviews} Total</span>
                   </div>
 
-                  <div className="flex h-32 gap-1.5 px-2">
-                    {ratingDistribution.map((rate) => {
-                      const heightPercentage = Math.max((rate.count / maxRatingCount) * 100, 4);
-                      return (
-                        <div key={rate.stars} className="flex-1 flex flex-col justify-end group h-full">
-                          <div className="text-center text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mb-1">{rate.count}</div>
-                          <div className="w-full bg-azure-500 rounded-t-sm" style={{ height: `${heightPercentage}%` }} />
-                          <div className="mt-2 text-center text-xs text-abyss-400 font-medium">
-                            {rate.stars}
-                            <Star className="w-2.5 h-2.5 inline fill-abyss-400 ml-0.5 -mt-0.5" />
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-abyss-800 bg-abyss-900/40 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Average Score</p>
+                      <p className="mt-1 text-2xl font-bold text-azure-100">{averageRating}<span className="text-sm text-muted-foreground">/10</span></p>
+                    </div>
+
+                    <div className="space-y-2">
+                      {[...ratingDistribution].sort((a, b) => b.stars - a.stars).map((rate) => {
+                        const widthPercentage = Math.max((rate.count / maxRatingCount) * 100, rate.count > 0 ? 8 : 0);
+                        return (
+                          <div key={rate.stars} className="grid grid-cols-[40px_1fr_32px] items-center gap-2">
+                            <div className="text-xs font-medium text-abyss-300">
+                              {rate.stars}
+                              <Star className="w-2.5 h-2.5 inline fill-abyss-300 ml-0.5 -mt-0.5" />
+                            </div>
+                            <div className="h-2 rounded-full border border-abyss-800 bg-abyss-950 overflow-hidden">
+                              <div className="h-full rounded-full bg-azure-500" style={{ width: `${widthPercentage}%` }} />
+                            </div>
+                            <div className="text-right text-xs text-muted-foreground">{rate.count}</div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </section>
               </div>

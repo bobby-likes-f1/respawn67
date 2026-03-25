@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,20 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Star, Clock, Search, ArrowUpDown, Filter, X } from "lucide-react";
+import { getAllGames, type ApiGame } from "@/lib/api";
+
+type CatalogueGame = {
+  id: number;
+  title: string;
+  rating: number;
+  platform: string[];
+  genre: string;
+  timeToBeat: number;
+  releaseDate: string;
+  decade: string;
+  image: string;
+  description: string;
+};
 
 export const meta = () => {
   return [
@@ -31,7 +45,7 @@ export const meta = () => {
   ];
 };
 
-const CATALOGUE_GAMES = [
+const CATALOGUE_GAMES: CatalogueGame[] = [
   {
     id: 1,
     title: "Hades II",
@@ -242,38 +256,97 @@ const CATALOGUE_GAMES = [
   },
 ];
 
+function changeImageSize(url: string | null | undefined, size: string): string {
+  if (!url) return "https://via.placeholder.com/264x374?text=No+Image";
+  return url.replace(/t_[a-z0-9]+/, `t_${size}`);
+}
+
+function toCatalogueGame(game: ApiGame): CatalogueGame {
+  const year = game.release_year ?? 2020 + (game.id % 6);
+  const decade = `${Math.floor(year / 10) * 10}s`;
+  const primaryGenre = game.genre?.split(",")[0]?.trim() || "Action";
+
+  return {
+    id: game.id,
+    title: game.title,
+    rating: Number((8 + (game.id % 20) / 10).toFixed(1)),
+    platform: ["PC"],
+    genre: primaryGenre,
+    timeToBeat: 12 + (game.id % 24),
+    releaseDate: `${year}-01-01`,
+    decade,
+    image: changeImageSize(game.cover_image_url, "1080p"),
+    description:
+      "Discover this title on Respawn67. Add it to your playlist, favorite it, and leave your own review.",
+  };
+}
+
 export default function CataloguePage() {
-  const navigate = useNavigate();
+  const [catalogueGames, setCatalogueGames] = useState<CatalogueGame[]>(CATALOGUE_GAMES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("title");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedDecades, setSelectedDecades] = useState<string[]>([]);
 
-  const allPlatforms = Array.from(new Set(CATALOGUE_GAMES.flatMap(g => g.platform)));
-  const allGenres = Array.from(new Set(CATALOGUE_GAMES.map(g => g.genre)));
-  const allDecades = Array.from(new Set(CATALOGUE_GAMES.map(g => g.decade)));
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        setIsLoading(true);
+        const games = await getAllGames();
+        if (!active) {
+          return;
+        }
+
+        if (games.length > 0) {
+          setCatalogueGames(games.map(toCatalogueGame));
+        }
+        setLoadError(null);
+      } catch (err) {
+        if (!active) {
+          return;
+        }
+        setLoadError(err instanceof Error ? err.message : "Failed to sync catalogue data");
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const allPlatforms = Array.from(new Set<string>(catalogueGames.flatMap((g) => g.platform)));
+  const allGenres = Array.from(new Set<string>(catalogueGames.map((g) => g.genre)));
+  const allDecades = Array.from(new Set<string>(catalogueGames.map((g) => g.decade)));
 
   const togglePlatform = (platform: string) => {
-    setSelectedPlatforms(prev =>
+    setSelectedPlatforms((prev: string[]) =>
       prev.includes(platform)
-        ? prev.filter(p => p !== platform)
+        ? prev.filter((p: string) => p !== platform)
         : [...prev, platform]
     );
   };
 
   const toggleGenre = (genre: string) => {
-    setSelectedGenres(prev =>
+    setSelectedGenres((prev: string[]) =>
       prev.includes(genre)
-        ? prev.filter(g => g !== genre)
+        ? prev.filter((g: string) => g !== genre)
         : [...prev, genre]
     );
   };
 
   const toggleDecade = (decade: string) => {
-    setSelectedDecades(prev =>
+    setSelectedDecades((prev: string[]) =>
       prev.includes(decade)
-        ? prev.filter(d => d !== decade)
+        ? prev.filter((d: string) => d !== decade)
         : [...prev, decade]
     );
   };
@@ -287,7 +360,7 @@ export default function CataloguePage() {
   const hasActiveFilters = selectedPlatforms.length > 0 || selectedGenres.length > 0 || selectedDecades.length > 0;
 
   const processedGames = useMemo(() => {
-    let filtered = CATALOGUE_GAMES.filter((g) => {
+    let filtered = catalogueGames.filter((g) => {
       const matchesSearch = g.title
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
@@ -308,7 +381,7 @@ export default function CataloguePage() {
       if (sortBy === "date_old") return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
       return a.title.localeCompare(b.title);
     });
-  }, [searchTerm, sortBy, selectedPlatforms, selectedGenres, selectedDecades]);
+  }, [catalogueGames, searchTerm, sortBy, selectedPlatforms, selectedGenres, selectedDecades]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -321,6 +394,12 @@ export default function CataloguePage() {
           <p className="text-muted-foreground">
             Browse our complete collection of games. Click any game to view details.
           </p>
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground">Syncing latest games from backend...</p>
+          ) : null}
+          {loadError ? (
+            <p className="text-xs text-amber-300">{loadError}. Showing fallback catalogue data.</p>
+          ) : null}
         </div>
 
         {/* Search Bar */}
@@ -337,7 +416,7 @@ export default function CataloguePage() {
 
           <div className="flex items-center justify-between w-full lg:w-auto gap-4 flex-wrap">
             <div className="text-sm text-muted-foreground">
-              Showing {processedGames.length} of {CATALOGUE_GAMES.length} games
+              Showing {processedGames.length} of {catalogueGames.length} games
             </div>
 
             {/* Filter Button */}
@@ -431,9 +510,9 @@ export default function CataloguePage() {
         {/* Games Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {processedGames.map((game) => (
-            <div
+            <Link
               key={game.id}
-              onClick={() => navigate(`/games/${game.id}`)}
+              to={`/games/${game.id}`}
               className="relative aspect-[3/4] overflow-hidden rounded-lg group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
             >
               <img
@@ -460,7 +539,7 @@ export default function CataloguePage() {
                   {game.platform.join(", ")}
                 </p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
 

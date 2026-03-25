@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type PointerEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ import {
   Trash2,
   ArrowRightCircle,
   CheckCircle2,
+  Sparkles,
+  X,
 } from "lucide-react";
 import {
   getPlaylistEntries,
@@ -134,6 +136,9 @@ export default function BacklogPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("title");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [pickedGame, setPickedGame] = useState<BacklogGame | null>(null);
+  const [pickToastOffsetX, setPickToastOffsetX] = useState(0);
+  const [pickToastPointerStartX, setPickToastPointerStartX] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isAuthorized) {
@@ -218,7 +223,46 @@ export default function BacklogPage() {
 
     const randomIndex = Math.floor(Math.random() * source.length);
     const selected = source[randomIndex];
-    navigate(`/games/${selected.id}`);
+    setPickedGame(selected);
+    setPickToastOffsetX(0);
+    setPickToastPointerStartX(null);
+  };
+
+  const dismissPickToast = () => {
+    setPickedGame(null);
+    setPickToastOffsetX(0);
+    setPickToastPointerStartX(null);
+  };
+
+  const openPickedGame = () => {
+    if (!pickedGame) {
+      return;
+    }
+
+    const selectedId = pickedGame.id;
+    dismissPickToast();
+    navigate(`/games/${selectedId}`);
+  };
+
+  const handlePickToastPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    setPickToastPointerStartX(event.clientX);
+  };
+
+  const handlePickToastPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (pickToastPointerStartX === null) {
+      return;
+    }
+    setPickToastOffsetX(event.clientX - pickToastPointerStartX);
+  };
+
+  const handlePickToastPointerUp = () => {
+    if (Math.abs(pickToastOffsetX) > 90) {
+      dismissPickToast();
+      return;
+    }
+
+    setPickToastOffsetX(0);
+    setPickToastPointerStartX(null);
   };
 
   const handleTabChange = (value: string) => {
@@ -305,6 +349,49 @@ export default function BacklogPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-8">
+      {pickedGame ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none px-4">
+          <div
+            className="pointer-events-auto w-full max-w-md rounded-xl border border-azure-400/45 bg-abyss-900/95 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur transition-transform"
+            style={{
+              transform: `translateX(${pickToastOffsetX}px)`,
+              opacity: Math.max(0.35, 1 - Math.abs(pickToastOffsetX) / 240),
+            }}
+            onPointerDown={handlePickToastPointerDown}
+            onPointerMove={handlePickToastPointerMove}
+            onPointerUp={handlePickToastPointerUp}
+            onPointerCancel={handlePickToastPointerUp}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-azure-300">
+                  <Sparkles className="h-3.5 w-3.5" /> Pick for me
+                </p>
+                <h3 className="mt-1 text-lg font-bold text-azure-50">{pickedGame.title}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Swipe this card left or right to dismiss.</p>
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={dismissPickToast}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <Button className="flex-1" onClick={openPickedGame}>
+                Open game
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={dismissPickToast}>
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-6 border-b pb-6">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
           <div>
@@ -328,7 +415,7 @@ export default function BacklogPage() {
               asChild
               className="gap-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white flex-1 md:flex-none"
             >
-              <Link to="/games">
+              <Link to="/catalogue">
                 <PlayCircle className="w-4 h-4" /> Add Game
               </Link>
             </Button>
