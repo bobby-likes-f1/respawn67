@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,15 @@ import {
   Edit2,
   ArrowRightCircle,
 } from "lucide-react";
+import {
+  getPlaylistEntries,
+  getPlaylistGames,
+  removeFromPlaylist,
+  updatePlaylistStatusByGame,
+  type ApiGame,
+  type PlaylistEntry,
+} from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import type { Route } from "./+types/backlog";
 
@@ -41,85 +50,132 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "My Backlog | Respawn67" }];
 }
 
-// Extended Mock Data
-const BACKLOG_GAMES = [
-  {
-    id: 1,
-    title: "Baldur's Gate 3",
-    platform: "PC",
-    status: "playing",
-    progress: 45,
-    hoursPlayed: 60,
-    hoursTotal: 120,
-    cover: "https://images.igdb.com/igdb/image/upload/t_cover_big/co670h.webp",
-    priority: "High",
-  },
-  {
-    id: 2,
-    title: "Sea of Stars",
-    platform: "Switch",
-    status: "backlog",
-    progress: 0,
-    hoursPlayed: 0,
-    hoursTotal: 30,
-    cover: "https://images.igdb.com/igdb/image/upload/t_cover_big/co215b.webp",
-    priority: "Medium",
-  },
-  {
-    id: 3,
-    title: "Alan Wake 2",
-    platform: "PS5",
-    status: "backlog",
-    progress: 0,
-    hoursPlayed: 0,
-    hoursTotal: 20,
-    cover: "https://images.igdb.com/igdb/image/upload/t_cover_big/co6lz1.webp",
-    priority: "High",
-  },
-  {
-    id: 4,
-    title: "Spider-Man 2",
-    platform: "PS5",
-    status: "completed",
-    progress: 100,
-    hoursPlayed: 25,
-    hoursTotal: 25,
-    cover: "https://images.igdb.com/igdb/image/upload/t_cover_big/cobg1k.webp",
-    priority: "Done",
-  },
-  {
-    id: 5,
-    title: "Hollow Knight",
-    platform: "PC",
-    status: "playing",
-    progress: 80,
-    hoursPlayed: 35,
-    hoursTotal: 40,
-    cover: "https://images.igdb.com/igdb/image/upload/t_cover_big/cobfzp.webp",
-    priority: "High",
-  },
-  {
-    id: 6,
-    title: "Cyberpunk 2077",
-    platform: "PC",
-    status: "abandoned",
-    progress: 30,
-    hoursPlayed: 15,
-    hoursTotal: 60,
-    cover: "https://images.igdb.com/igdb/image/upload/t_cover_big/coaih8.webp",
-    priority: "Low",
-  },
-];
+type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
+
+type BacklogGame = {
+  id: number;
+  title: string;
+  platform: string;
+  status: BacklogStatus;
+  progress: number;
+  hoursPlayed: number;
+  hoursTotal: number;
+  cover: string;
+  priority: "High" | "Medium" | "Low" | "Done";
+};
+
+const FALLBACK_COVER =
+  "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
+
+function normalizeStatus(status: string): BacklogStatus {
+  if (status === "playing") return "playing";
+  if (status === "completed") return "completed";
+  if (status === "abandoned") return "abandoned";
+  return "backlog";
+}
+
+function toApiStatus(status: BacklogStatus): string {
+  if (status === "backlog") return "want_to_play";
+  return status;
+}
+
+function inferProgress(status: BacklogStatus): number {
+  if (status === "completed") return 100;
+  if (status === "playing") return 45;
+  if (status === "abandoned") return 20;
+  return 0;
+}
+
+function inferPriority(status: BacklogStatus): BacklogGame["priority"] {
+  if (status === "completed") return "Done";
+  if (status === "playing") return "High";
+  if (status === "abandoned") return "Low";
+  return "Medium";
+}
+
+function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): BacklogGame[] {
+  const statusByGameId = new Map<number, BacklogStatus>();
+  for (const entry of entries) {
+    statusByGameId.set(entry.game_id, normalizeStatus(entry.status));
+  }
+
+  return games.map((game) => {
+    const status = statusByGameId.get(game.id) ?? "backlog";
+    const hoursTotal = status === "completed" ? 40 : 30;
+    const progress = inferProgress(status);
+
+    return {
+      id: game.id,
+      title: game.title,
+      platform: game.genre ?? "Unknown",
+      status,
+      progress,
+      hoursPlayed: Math.round((hoursTotal * progress) / 100),
+      hoursTotal,
+      cover: game.cover_image_url ?? FALLBACK_COVER,
+      priority: inferPriority(status),
+    };
+  });
+}
 
 export default function BacklogPage() {
   const isAuthorized = useRequireAuth();
+  const [games, setGames] = useState<BacklogGame[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("title");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  useEffect(() => {
+    if (!isAuthorized) {
+      return;
+    }
+
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      setIsLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    (async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const [entries, playlistGames] = await Promise.all([
+          getPlaylistEntries(user.id),
+          getPlaylistGames(user.id),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setGames(mapBacklogGames(entries, playlistGames));
+      } catch (err) {
+        if (!active) {
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Failed to load backlog");
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthorized]);
+
   const processedGames = useMemo(() => {
-    let filtered = BACKLOG_GAMES.filter((g) => {
+    const filtered = games.filter((g) => {
       const matchesTab = activeTab === "all" || g.status === activeTab;
       const matchesSearch = g.title
         .toLowerCase()
@@ -133,21 +189,88 @@ export default function BacklogPage() {
       if (sortBy === "progress") return b.progress - a.progress;
       return a.title.localeCompare(b.title);
     });
-  }, [activeTab, searchQuery, sortBy]);
+  }, [activeTab, games, searchQuery, sortBy]);
 
-  const totalHoursPlayed = BACKLOG_GAMES.reduce(
+  const totalHoursPlayed = games.reduce(
     (acc, game) => acc + game.hoursPlayed,
     0,
   );
-  const totalGamesCompleted = BACKLOG_GAMES.filter(
+  const totalGamesCompleted = games.filter(
     (g) => g.status === "completed",
   ).length;
   const completionRate = Math.round(
-    (totalGamesCompleted / BACKLOG_GAMES.length) * 100,
+    (totalGamesCompleted / Math.max(games.length, 1)) * 100,
   );
+
+  const handleStatusUpdate = async (gameId: number, nextStatus: BacklogStatus) => {
+    const user = getStoredUser();
+    if (!user) {
+      return;
+    }
+
+    setIsMutating(true);
+    setError(null);
+
+    const previous = games;
+    setGames((current) =>
+      current.map((game) => {
+        if (game.id !== gameId) {
+          return game;
+        }
+
+        const progress = inferProgress(nextStatus);
+        return {
+          ...game,
+          status: nextStatus,
+          progress,
+          hoursPlayed: Math.round((game.hoursTotal * progress) / 100),
+          priority: inferPriority(nextStatus),
+        };
+      }),
+    );
+
+    try {
+      await updatePlaylistStatusByGame(user.id, gameId, toApiStatus(nextStatus));
+    } catch (err) {
+      setGames(previous);
+      setError(err instanceof Error ? err.message : "Failed to update game status");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleRemove = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      return;
+    }
+
+    setIsMutating(true);
+    setError(null);
+
+    const previous = games;
+    setGames((current) => current.filter((game) => game.id !== gameId));
+
+    try {
+      await removeFromPlaylist(user.id, gameId);
+    } catch (err) {
+      setGames(previous);
+      setError(err instanceof Error ? err.message : "Failed to remove game");
+    } finally {
+      setIsMutating(false);
+    }
+  };
 
   if (!isAuthorized) {
     return null;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-16 px-4">
+        <p className="text-muted-foreground">Loading backlog...</p>
+      </div>
+    );
   }
 
   return (
@@ -166,20 +289,25 @@ export default function BacklogPage() {
             <Button variant="outline" className="gap-2 flex-1 md:flex-none">
               <Dice5 className="w-4 h-4" /> Pick for Me
             </Button>
-            <Button className="gap-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white flex-1 md:flex-none">
+            <Button
+              disabled
+              className="gap-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white flex-1 md:flex-none"
+            >
               <PlayCircle className="w-4 h-4" /> Add Game
             </Button>
           </div>
         </div>
 
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatBox
             label="Total Games"
-            value={BACKLOG_GAMES.length.toString()}
+            value={games.length.toString()}
           />
           <StatBox
             label="Currently Playing"
-            value={BACKLOG_GAMES.filter(
+            value={games.filter(
               (g) => g.status === "playing",
             ).length.toString()}
           />
@@ -249,7 +377,7 @@ export default function BacklogPage() {
               variant="secondary"
               className="px-1 py-0 h-5 text-[10px] rounded-sm bg-azure-500/10 text-azure-600"
             >
-              {BACKLOG_GAMES.filter((g) => g.status === "playing").length}
+              {games.filter((g) => g.status === "playing").length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="backlog">Up Next</TabsTrigger>
@@ -270,7 +398,15 @@ export default function BacklogPage() {
               }
             >
               {processedGames.map((game) => (
-                <BacklogItem key={game.id} game={game} view={viewMode} />
+                <BacklogItem
+                  key={game.id}
+                  game={game}
+                  view={viewMode}
+                  isMutating={isMutating}
+                  onMarkPlaying={() => handleStatusUpdate(game.id, "playing")}
+                  onMoveToBacklog={() => handleStatusUpdate(game.id, "backlog")}
+                  onRemove={() => handleRemove(game.id)}
+                />
               ))}
             </div>
           ) : (
@@ -302,7 +438,21 @@ function StatBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BacklogItem({ game, view }: { game: any; view: "grid" | "list" }) {
+function BacklogItem({
+  game,
+  view,
+  isMutating,
+  onMarkPlaying,
+  onMoveToBacklog,
+  onRemove,
+}: {
+  game: BacklogGame;
+  view: "grid" | "list";
+  isMutating: boolean;
+  onMarkPlaying: () => void;
+  onMoveToBacklog: () => void;
+  onRemove: () => void;
+}) {
   if (view === "list") {
     return (
       <Card className="flex flex-row items-center p-3 sm:p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-700 hover:ring-2 hover:ring-primary transition-all group text-left">
@@ -343,7 +493,12 @@ function BacklogItem({ game, view }: { game: any; view: "grid" | "list" }) {
         </div>
 
         <div className="shrink-0">
-          <CardActions />
+          <CardActions
+            isMutating={isMutating}
+            onMarkPlaying={onMarkPlaying}
+            onMoveToBacklog={onMoveToBacklog}
+            onRemove={onRemove}
+          />
         </div>
       </Card>
     );
@@ -420,32 +575,50 @@ function BacklogItem({ game, view }: { game: any; view: "grid" | "list" }) {
         <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
           {game.status}
         </div>
-        <CardActions />
+        <CardActions
+          isMutating={isMutating}
+          onMarkPlaying={onMarkPlaying}
+          onMoveToBacklog={onMoveToBacklog}
+          onRemove={onRemove}
+        />
       </CardFooter>
     </Card>
   );
 }
 
-function CardActions() {
+function CardActions({
+  isMutating,
+  onMarkPlaying,
+  onMoveToBacklog,
+  onRemove,
+}: {
+  isMutating: boolean;
+  onMarkPlaying: () => void;
+  onMoveToBacklog: () => void;
+  onRemove: () => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isMutating}>
           <MoreHorizontal className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem className="gap-2">
+        <DropdownMenuItem className="gap-2" onSelect={onMarkPlaying}>
           <PlayCircle className="w-4 h-4" /> Mark as Playing
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2">
+        <DropdownMenuItem className="gap-2" onSelect={onMoveToBacklog}>
           <ArrowRightCircle className="w-4 h-4" /> Move to Up Next
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2">
+        <DropdownMenuItem className="gap-2" disabled>
           <Edit2 className="w-4 h-4" /> Edit Details
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive">
+        <DropdownMenuItem
+          className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onSelect={onRemove}
+        >
           <Trash2 className="w-4 h-4" /> Remove from Backlog
         </DropdownMenuItem>
       </DropdownMenuContent>

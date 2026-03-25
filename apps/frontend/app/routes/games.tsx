@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,8 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GameCard } from "@/components/game-card";
 import { ChevronLeft, ChevronRight, Star, Clock } from "lucide-react";
+import { getAllGames, type ApiGame } from "@/lib/api";
 import type { Route } from "./+types/games";
 
 export function meta({}: Route.MetaArgs) {
@@ -20,6 +21,32 @@ export function meta({}: Route.MetaArgs) {
       content: "Discover and explore thousands of video games.",
     },
   ];
+}
+
+// helper to change igdb image size
+function changeImageSize(url: string | null | undefined, size: string): string {
+  if (!url) return "https://via.placeholder.com/264x374?text=No+Image";
+  // replace t_{oldSize} with t_{newSize}
+  return url.replace(/t_[a-z0-9]+/, `t_${size}`);
+}
+
+// turn ApiGame into ui data with defaults
+function transformGameData(game: ApiGame) {
+  // keep these deterministic so ssr and client match
+  const derivedRating = Number((8 + (game.id % 20) / 10).toFixed(1));
+  const derivedTimeToBeat = 12 + (game.id % 24);
+
+  return {
+    id: game.id,
+    title: game.title,
+    rating: derivedRating,
+    platform: game.developer ? [game.developer] : ["PC"],
+    timeToBeat: derivedTimeToBeat,
+    image: game.cover_image_url || "",
+    spotlightImage: game.cover_image_url || "",
+    description:
+      "Discover this title on Respawn67. Add it to your playlist, favorite it, and leave your own review.",
+  };
 }
 
 const MOCK_GAMES = [
@@ -218,48 +245,82 @@ const MOCK_GAMES = [
 ];
 
 export default function GamesPage() {
+  const [games, setGames] = useState<ReturnType<typeof transformGameData>[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
 
-  // Get top 4 games by rating for spotlight
-  const spotlightGames = [...MOCK_GAMES]
+  // fetch games on mount
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        setIsLoading(true);
+        const apiGames = await getAllGames();
+        if (active) {
+          const transformed = apiGames.map(transformGameData);
+          setGames(transformed);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) {
+          setError("Failed to load games");
+          // fall back to mock data on error
+          setGames(MOCK_GAMES);
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const displayGames = games.length > 0 ? games : MOCK_GAMES;
+
+  // top 4 games for spotlight
+  const spotlightGames = [...displayGames]
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 4);
 
-  // Get games ranked 5-8 for Most Popular
-  const mostPopularGames = [...MOCK_GAMES]
+  // games ranked 5-8 for most popular
+  const mostPopularGames = [...displayGames]
     .sort((a, b) => b.rating - a.rating)
     .slice(4, 8);
 
-  // News items based on games
+  // news items based on games
   const newsItems = [
     {
-      game: MOCK_GAMES[3], // GTA VI
-      title: "GTA VI Breaks All Records in First Week",
-      description:
-        "Rockstar's latest masterpiece shatters sales records across all platforms, becoming the biggest entertainment launch of all time.",
+      game: displayGames[3] || displayGames[0],
+      title: "New Game Released",
+      description: "Check out the latest additions to our gaming library.",
       timeAgo: "2 hours ago",
     },
     {
-      game: MOCK_GAMES[7], // Hollow Knight
-      title: "Hollow Knight Community Reaches 10 Million Players",
-      description:
-        "Team Cherry's indie masterpiece continues to captivate players years after launch with its haunting world and challenging gameplay.",
+      game: displayGames[7] || displayGames[1],
+      title: "Community Spotlight",
+      description: "Discover what players are currently playing and reviewing.",
       timeAgo: "5 hours ago",
     },
     {
-      game: MOCK_GAMES[12], // Cyberpunk 2077
-      title: "Cyberpunk 2077 Wins Best Ongoing Game Award",
-      description:
-        "CD Projekt Red's redemption story complete as the game receives critical acclaim for its massive transformation since launch.",
+      game: displayGames[12] || displayGames[2],
+      title: "Game of the Week",
+      description: "Find your next favorite game from our curated selection.",
       timeAgo: "1 day ago",
     },
   ];
 
   const gamesPerPage = 4;
-  const totalPages = Math.ceil(MOCK_GAMES.length / gamesPerPage);
-  const displayedGames = MOCK_GAMES.slice(
+  const totalPages = Math.ceil(displayGames.length / gamesPerPage);
+  const displayedGames = displayGames.slice(
     currentPage * gamesPerPage,
     (currentPage + 1) * gamesPerPage,
   );
@@ -270,22 +331,22 @@ export default function GamesPage() {
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) return 0;
-        return prev + 2.5; // Increment by 2.5% every 100ms (100ms * 40 = 4000ms)
+        return prev + 2.5;
       });
     }, 100);
 
     const slideInterval = setInterval(() => {
       setCurrentGameIndex((prev) => (prev + 1) % spotlightGames.length);
       setProgress(0);
-    }, 4000); // Auto-rotate every 4 seconds
+    }, 4000);
 
     return () => {
       clearInterval(progressInterval);
       clearInterval(slideInterval);
     };
-  }, [currentGameIndex, spotlightGames.length]);
+  }, [spotlightGames.length]);
 
-  const currentGame = spotlightGames[currentGameIndex];
+  const currentGame = spotlightGames[currentGameIndex] || spotlightGames[0];
 
   const nextGame = () => {
     setCurrentGameIndex((prev) => (prev + 1) % spotlightGames.length);
@@ -307,7 +368,7 @@ export default function GamesPage() {
           <div
             className="absolute inset-0 bg-cover transition-all duration-700 rounded-2xl"
             style={{
-              backgroundImage: `url(${currentGame.spotlightImage})`,
+              backgroundImage: `url(${changeImageSize(currentGame.spotlightImage, "720p")})`,
               backgroundPosition: "center 40%",
             }}
           />
@@ -341,12 +402,14 @@ export default function GamesPage() {
               {currentGame.title}
             </h2>
             <p className="text-slate-300 text-lg">{currentGame.description}</p>
-            <Button
-              size="lg"
-              className="mt-4 px-8 py-6 text-lg bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white font-bold"
-            >
-              Read Review
-            </Button>
+            <Link to={`/games/${currentGame.id}`}>
+              <Button
+                size="lg"
+                className="mt-4 px-8 py-6 text-lg bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white font-bold"
+              >
+                View Game
+              </Button>
+            </Link>
           </div>
 
           {/* Navigation Buttons at edges */}
@@ -410,12 +473,13 @@ export default function GamesPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 flex-1">
               {displayedGames.map((game) => (
-                <div
+                <Link
                   key={game.id}
-                  className="relative aspect-[3/4] overflow-hidden rounded-lg group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
+                  to={`/games/${game.id}`}
+                  className="relative block aspect-[3/4] overflow-hidden rounded-lg group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
                 >
                   <img
-                    src={game.image}
+                    src={changeImageSize(game.image, "cover_big")}
                     alt={game.title}
                     className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                   />
@@ -438,7 +502,7 @@ export default function GamesPage() {
                       {game.platform.join(", ")}
                     </p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
 
@@ -463,12 +527,13 @@ export default function GamesPage() {
             <h3 className="text-2xl font-bold tracking-tight">Trending Now</h3>
             <div className="space-y-4">
               {mostPopularGames.map((game, index) => (
-                <div
+                <Link
                   key={game.id}
-                  className="relative h-40 rounded-lg overflow-hidden group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
+                  to={`/games/${game.id}`}
+                  className="relative block h-40 rounded-lg overflow-hidden group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
                 >
                   <img
-                    src={game.image}
+                    src={changeImageSize(game.image, "screenshot_med")}
                     alt={game.title}
                     className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                   />
@@ -489,7 +554,7 @@ export default function GamesPage() {
                       {game.platform.join(" • ")}
                     </p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
@@ -499,10 +564,10 @@ export default function GamesPage() {
             <h3 className="text-2xl font-bold tracking-tight">Latest News</h3>
             <div className="space-y-6">
               {newsItems.map((news, i) => (
-                <div key={i} className="group cursor-pointer space-y-2">
+                <Link key={i} to={`/games/${news.game.id}`} className="block group cursor-pointer space-y-2">
                   <div className="relative h-32 w-full rounded-md mb-2 overflow-hidden">
                     <img
-                      src={news.game.image}
+                      src={changeImageSize(news.game.image, "screenshot_med")}
                       alt={news.game.title}
                       className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                     />
@@ -520,7 +585,7 @@ export default function GamesPage() {
                   <p className="text-xs text-muted-foreground">
                     {news.timeAgo} • By Staff Writer
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
