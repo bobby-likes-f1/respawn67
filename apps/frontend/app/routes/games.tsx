@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -218,6 +219,7 @@ const MOCK_GAMES = [
 ];
 
 export default function GamesPage() {
+  const navigate = useNavigate();
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
@@ -390,13 +392,21 @@ export default function GamesPage() {
 
         {/* Hot games */}
         <section className="space-y-6">
-          <div>
-            <h3 className="text-3xl font-bold tracking-tight">
-              Top Rated Games
-            </h3>
-            <p className="text-muted-foreground">
-              The highest rated games of all time according to our community
-            </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-3xl font-bold tracking-tight">
+                Top Rated Games
+              </h3>
+              <p className="text-muted-foreground">
+                The highest rated games of all time according to our community
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate("/catalogue")}
+              className="mt-1 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white"
+            >
+              View More Games
+            </Button>
           </div>
 
           <div className="relative flex items-center gap-4">
@@ -412,6 +422,7 @@ export default function GamesPage() {
               {displayedGames.map((game) => (
                 <div
                   key={game.id}
+                  onClick={() => navigate(`/games/${game.id}`)}
                   className="relative aspect-[3/4] overflow-hidden rounded-lg group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
                 >
                   <img
