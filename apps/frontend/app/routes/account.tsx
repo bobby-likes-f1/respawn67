@@ -1,9 +1,11 @@
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, Settings, Link, LayoutGrid, Clock } from "lucide-react";
+import { getInitials, getMemberSinceLabel, getStoredUser, type AuthUser } from "@/lib/auth";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import type { Route } from "./+types/account";
 
 export function meta({}: Route.MetaArgs) {
@@ -64,7 +66,32 @@ const MOCK_USER = {
 };
 
 export default function AccountPage() {
+  const isAuthorized = useRequireAuth();
+  const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    setSessionUser(getStoredUser());
+  }, []);
+
+  const profileUser = useMemo(() => {
+    if (!sessionUser) {
+      return MOCK_USER;
+    }
+
+    return {
+      ...MOCK_USER,
+      username: sessionUser.username,
+      avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(sessionUser.username)}`,
+      bio: `Signed in as ${sessionUser.email}`,
+    };
+  }, [sessionUser]);
+
   const maxRatingCount = Math.max(...MOCK_USER.ratingsDistribution.map(r => r.count));
+  const memberSince = getMemberSinceLabel(sessionUser) ?? MOCK_USER.joinDate;
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -73,17 +100,17 @@ export default function AccountPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-border/60 pb-8">
           <div className="flex items-center gap-6">
             <Avatar className="w-24 h-24 ring-4 ring-abyss-800 shadow-xl">
-              <AvatarImage src={MOCK_USER.avatar} alt={MOCK_USER.username} />
-              <AvatarFallback className="text-2xl bg-abyss-800 text-azure-50">{MOCK_USER.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={profileUser.avatar} alt={profileUser.username} />
+              <AvatarFallback className="text-2xl bg-abyss-800 text-azure-50">{getInitials(profileUser.username)}</AvatarFallback>
             </Avatar>
             <div className="space-y-2">
               <div className="flex items-center gap-4">
-                <h1 className="text-3xl font-bold tracking-tight">{MOCK_USER.username}</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{profileUser.username}</h1>
                 <Button variant="outline" size="sm" className="hidden sm:flex border-abyss-700 bg-abyss-900/50 hover:bg-abyss-800 text-azure-100 hover:text-white">
                   <Settings className="w-4 h-4 mr-2" /> Edit Profile
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">Member since {MOCK_USER.joinDate}</p>
+              <p className="text-sm text-muted-foreground">Member since {memberSince}</p>
             </div>
           </div>
 
@@ -158,9 +185,9 @@ export default function AccountPage() {
               </div>
               <div className="lg:col-span-4 space-y-10">
                 <section className="space-y-3 pt-2">
-                  <p className="text-sm text-muted-foreground leading-relaxed">{MOCK_USER.bio}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{profileUser.bio}</p>
                   <a href="#" className="inline-flex items-center gap-1.5 text-sm text-azure-500 hover:text-azure-400 transition-colors font-medium">
-                    <Link className="w-3.5 h-3.5" /> github.com/{MOCK_USER.username}
+                    <Link className="w-3.5 h-3.5" /> github.com/{profileUser.username}
                   </a>
                 </section>
 

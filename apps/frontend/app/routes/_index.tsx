@@ -1,12 +1,9 @@
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -17,8 +14,8 @@ import {
   AlignLeft,
   Calendar,
   LayoutGrid,
-  MessageSquare,
 } from "lucide-react";
+import { getToken } from "@/lib/auth";
 import type { Route } from "./+types/_index";
 
 export function meta({}: Route.MetaArgs) {
@@ -54,8 +51,7 @@ export default function LandingPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // TODO: replace with your real auth check once backend is integrated
-    const token = localStorage.getItem("token");
+    const token = getToken();
     setIsLoggedIn(!!token);
   }, []);
 
