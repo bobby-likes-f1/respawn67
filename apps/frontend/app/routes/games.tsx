@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -249,6 +250,7 @@ export default function GamesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const navigate = useNavigate();
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
@@ -453,13 +455,21 @@ export default function GamesPage() {
 
         {/* Hot games */}
         <section className="space-y-6">
-          <div>
-            <h3 className="text-3xl font-bold tracking-tight">
-              Top Rated Games
-            </h3>
-            <p className="text-muted-foreground">
-              The highest rated games of all time according to our community
-            </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-3xl font-bold tracking-tight">
+                Top Rated Games
+              </h3>
+              <p className="text-muted-foreground">
+                The highest rated games of all time according to our community
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate("/catalogue")}
+              className="mt-1 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white"
+            >
+              View More Games
+            </Button>
           </div>
 
           <div className="relative flex items-center gap-4">
