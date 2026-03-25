@@ -11,7 +11,6 @@ describe("Login Page", () => {
   });
 
   it("should show validation error for empty email", () => {
-    cy.get('input[type="password"]').type("password123");
     cy.get('button[type="submit"]').click();
     
     cy.get('input[type="email"]').should("have.attr", "required");
