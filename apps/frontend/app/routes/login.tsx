@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import type { SubmitEventHandler } from "react";
+import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { UserRound, Lock, Eye, EyeOff } from "lucide-react";
+import { login, saveSession } from "@/lib/auth";
 import type { Route } from "./+types/login";
 
 export function meta({}: Route.MetaArgs) {
@@ -21,7 +23,32 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit: SubmitEventHandler<HTMLFormElement> = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const result = await login({
+        email: email.trim(),
+        password,
+      });
+
+      saveSession({ token: result.token, user: result.user });
+      navigate("/games");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-16">
@@ -49,16 +76,20 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
             {/* Username or Email */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground/90">
-                Username or Email
+                Email
               </label>
               <div className="relative">
                 <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  type="text"
-                  placeholder="e.g. GamerTag42 or you@example.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="you@example.com"
                   className="pl-9 bg-abyss-800 border-abyss-600 focus:border-azure-500 focus:ring-azure-500/20"
                 />
               </div>
@@ -81,6 +112,9 @@ export default function LoginPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                   placeholder="••••••••"
                   className="pl-9 pr-10 bg-abyss-800 border-abyss-600 focus:border-azure-500 focus:ring-azure-500/20"
                 />
@@ -99,12 +133,17 @@ export default function LoginPage() {
             </div>
 
             {/* Submit */}
+            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
             <Button
-              className="w-full mt-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white font-bold"
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full mt-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white font-bold disabled:opacity-60"
               size="lg"
             >
-              Log In
+              {isSubmitting ? "Logging in..." : "Log In"}
             </Button>
+            </form>
           </CardContent>
 
           <CardFooter className="border-t border-abyss-700 pt-4 flex justify-center">

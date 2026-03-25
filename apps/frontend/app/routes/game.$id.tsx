@@ -36,7 +36,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
   if (USE_BACKEND_API) {
     try {
-      const res = await fetch(`http://localhost:8080/api/games/${params.id}`);
+      const res = await fetch(`http://localhost:8080/api/v1/games/${params.id}`);
       if (res.ok) {
         gameData = await res.json();
       }

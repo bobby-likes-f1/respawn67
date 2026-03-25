@@ -34,6 +34,7 @@ import {
   Edit2,
   ArrowRightCircle,
 } from "lucide-react";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import type { Route } from "./+types/backlog";
 
 export function meta({}: Route.MetaArgs) {
@@ -111,6 +112,7 @@ const BACKLOG_GAMES = [
 ];
 
 export default function BacklogPage() {
+  const isAuthorized = useRequireAuth();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("title");
@@ -143,6 +145,10 @@ export default function BacklogPage() {
   const completionRate = Math.round(
     (totalGamesCompleted / BACKLOG_GAMES.length) * 100,
   );
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-8">
