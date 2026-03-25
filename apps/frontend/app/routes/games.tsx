@@ -422,7 +422,7 @@ export default function GamesPage() {
               {displayedGames.map((game) => (
                 <div
                   key={game.id}
-                  onClick={() => navigate(`/game/${game.id}`)}
+                  onClick={() => navigate(`/games/${game.id}`)}
                   className="relative aspect-[3/4] overflow-hidden rounded-lg group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
                 >
                   <img
