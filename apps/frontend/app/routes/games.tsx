@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GameCard } from "@/components/game-card";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import type { Route } from "./+types/games";
 
