@@ -1,9 +1,41 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Star, Settings, Link, LayoutGrid, Clock } from "lucide-react";
+import {
+  Star,
+  Settings,
+  Link as LinkIcon,
+  LayoutGrid,
+  Clock,
+  Pencil,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  getAllGames,
+  getFavoriteGames,
+  getPlaylistEntries,
+  getPlaylistGames,
+  getReviews,
+  deleteReview,
+  removeFavoriteByGame,
+  removeFromPlaylist,
+  updatePlaylistStatusByGame,
+  updateReview,
+  type ApiGame,
+  type ApiReview,
+} from "@/lib/api";
 import { getInitials, getMemberSinceLabel, getStoredUser, type AuthUser } from "@/lib/auth";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import type { Route } from "./+types/account";
@@ -11,102 +43,449 @@ import type { Route } from "./+types/account";
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "My Account | Respawn67" },
-    { name: "description", content: "Manage your profile and vie w your gaming history." },
+    { name: "description", content: "Manage your profile and view your gaming history." },
   ];
 }
 
-const MOCK_USER = {
-  username: "rccar344",
-  avatar: "https://github.com/shadcn.png",
-  bio: "Just a gamer trying to clear a backlog that grows faster than I can play.",
-  joinDate: "2024",
-  stats: {
-    games: 142,
-    reviews: 45,
-    following: 12,
-    followers: 8
-  },
-  favorites: [
-    { id: 1, title: "Outer Wilds", image: "https://images.igdb.com/igdb/image/upload/t_1080p/co1x7d.webp" },
-    { id: 2, title: "Bloodborne", image: "https://images.igdb.com/igdb/image/upload/t_1080p/co1rpa.webp" },
-    { id: 3, title: "Hades", image: "https://images.igdb.com/igdb/image/upload/t_1080p/co39at.webp" },
-    { id: 4, title: "Disco Elysium", image: "https://images.igdb.com/igdb/image/upload/t_1080p/co1vxf.webp" }
-  ],
-  recentActivity: [
-    { id: 101, title: "Helldivers 2", rating: 4, image: "https://images.igdb.com/igdb/image/upload/t_1080p/co7qvq.webp", date: "2 days ago" },
-    { id: 102, title: "Dragon's Dogma 2", rating: 3, image: "https://images.igdb.com/igdb/image/upload/t_1080p/co7wqq.webp", date: "1 week ago" },
-    { id: 103, title: "Cyberpunk 2077", rating: 5, image: "https://images.igdb.com/igdb/image/upload/t_1080p/coaih8.webp", date: "2 weeks ago" },
-    { id: 104, title: "Lies of P", rating: 4, image: "https://images.igdb.com/igdb/image/upload/t_1080p/co65ze.webp", date: "1 month ago" }
-  ],
-  ratingsDistribution: [
-    { stars: 1, count: 2 },
-    { stars: 2, count: 5 },
-    { stars: 3, count: 12 },
-    { stars: 4, count: 18 },
-    { stars: 5, count: 8 }
-  ],
-  reviews: [
-    { id: 1, game: "Helldivers 2", rating: 4, date: "2 days ago", text: "Incredible cooperative chaos. The moment-to-moment gameplay loop is flawless, though connection issues hold it back slightly." },
-    { id: 2, game: "Dragon's Dogma 2", rating: 3, date: "1 week ago", text: "A phenomenal core combat system trapped inside a world that desperately needs more fast travel and better performance." },
-    { id: 3, game: "Cyberpunk 2077", rating: 5, date: "2 weeks ago", text: "Patch 2.0 and Phantom Liberty completely redeemed this game. Night City has never felt more alive. An absolute masterpiece now." },
-    { id: 4, game: "Elden Ring", rating: 5, date: "3 weeks ago", text: "A masterclass in world design and exploration. Every corner discovered holds a new secret." },
-    { id: 5, game: "Balatro", rating: 4, date: "1 month ago", text: "Dangerously addictive deck-building. Visually simple but mechanically deep." },
-    { id: 6, game: "Baldur's Gate 3", rating: 5, date: "2 months ago", text: "The new gold standard for RPGs. The amount of player agency is staggering." }
-  ],
-  backlogPreview: [
-    { id: 1, title: "Alan Wake 2", platform: "PS5", progress: 0, hoursTotal: 20 },
-    { id: 2, title: "Sea of Stars", platform: "Switch", progress: 10, hoursTotal: 30 },
-    { id: 3, title: "Remnant II", platform: "PC", progress: 45, hoursTotal: 60 }
-  ],
-  lists: [
-    { id: 1, title: "Top 10 Souls-likes", gameCount: 10, likes: 24, updated: "1 week ago" },
-    { id: 2, title: "Co-op Weekend", gameCount: 4, likes: 5, updated: "1 month ago" },
-    { id: 3, title: "Pile of Shame", gameCount: 42, likes: 1, updated: "2 months ago" }
-  ]
+type BacklogPreviewItem = {
+  id: number;
+  title: string;
+  platform: string;
+  status: BacklogStatus;
+  progress: number;
+  hoursTotal: number;
+  coverImageUrl: string | null;
 };
+
+type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
+
+const MOCK_LISTS = [
+  { id: 1, title: "Top 10 Souls-likes", gameCount: 10, likes: 24, updated: "1 week ago" },
+  { id: 2, title: "Co-op Weekend", gameCount: 4, likes: 5, updated: "1 month ago" },
+  { id: 3, title: "Pile of Shame", gameCount: 42, likes: 1, updated: "2 months ago" },
+];
+
+const FALLBACK_COVER =
+  "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
+
+function statusToProgress(status: string) {
+  if (status === "completed") return 100;
+  if (status === "playing") return 45;
+  if (status === "abandoned") return 20;
+  return 0;
+}
+
+function normalizeBacklogStatus(status: string): BacklogStatus {
+  if (status === "playing") return "playing";
+  if (status === "completed") return "completed";
+  if (status === "abandoned") return "abandoned";
+  return "backlog";
+}
+
+function toApiBacklogStatus(status: BacklogStatus) {
+  if (status === "backlog") return "want_to_play";
+  return status;
+}
+
+function formatBacklogStatus(status: BacklogStatus) {
+  if (status === "backlog") return "Backlog";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatDate(value?: string) {
+  if (!value) {
+    return "Recently";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Recently";
+  }
+
+  return parsed.toLocaleDateString();
+}
+
+function getReviewCreatedAt(review: ApiReview) {
+  return review.created_at ?? review.CreatedAt;
+}
+
+function changeImageSize(url: string | null | undefined, size: string) {
+  if (!url) return FALLBACK_COVER;
+  return url.replace(/t_[a-z0-9]+/, `t_${size}`);
+}
+
+function normalizeReviewScore(score: number) {
+  return Math.min(10, Math.max(1, Math.round(score)));
+}
 
 export default function AccountPage() {
   const isAuthorized = useRequireAuth();
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
 
+  const [favorites, setFavorites] = useState<ApiGame[]>([]);
+  const [reviews, setReviews] = useState<ApiReview[]>([]);
+  const [backlogPreview, setBacklogPreview] = useState<BacklogPreviewItem[]>([]);
+  const [gameTitleById, setGameTitleById] = useState<Record<number, string>>({});
+  const [gameCoverById, setGameCoverById] = useState<Record<number, string | null>>({});
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingReviewGameId, setEditingReviewGameId] = useState<number | null>(null);
+  const [draftReviewScore, setDraftReviewScore] = useState("0");
+  const [draftReviewText, setDraftReviewText] = useState("");
+  const [busyFavoriteId, setBusyFavoriteId] = useState<number | null>(null);
+  const [busyReviewGameId, setBusyReviewGameId] = useState<number | null>(null);
+  const [deletingReviewGameId, setDeletingReviewGameId] = useState<number | null>(null);
+  const [busyBacklogGameId, setBusyBacklogGameId] = useState<number | null>(null);
+
   useEffect(() => {
     setSessionUser(getStoredUser());
   }, []);
 
+  useEffect(() => {
+    if (!isAuthorized) {
+      return;
+    }
+
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      setIsLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    (async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const [favoriteGames, userReviews, playlistEntries, playlistGames, allGames] = await Promise.all([
+          getFavoriteGames(user.id),
+          getReviews({ userId: user.id }),
+          getPlaylistEntries(user.id),
+          getPlaylistGames(user.id),
+          getAllGames(),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setFavorites(favoriteGames);
+
+        const titleMap: Record<number, string> = {};
+        const coverMap: Record<number, string | null> = {};
+        for (const game of allGames) {
+          titleMap[game.id] = game.title;
+          coverMap[game.id] = game.cover_image_url ?? null;
+        }
+        setGameTitleById(titleMap);
+        setGameCoverById(coverMap);
+
+        setReviews(
+          userReviews.map((review) => ({
+            ...review,
+            text:
+              review.text && review.text.trim()
+                ? review.text
+                : `Thoughts on ${titleMap[review.game_id] ?? "this game"}.`,
+          })),
+        );
+
+        const statusByGameId = new Map<number, string>();
+        for (const entry of playlistEntries) {
+          statusByGameId.set(entry.game_id, entry.status);
+        }
+
+        const preview = playlistGames.map((game) => {
+          const status = normalizeBacklogStatus(statusByGameId.get(game.id) ?? "want_to_play");
+          return {
+            id: game.id,
+            title: game.title,
+            platform: game.genre ?? "Unknown",
+            status,
+            progress: statusToProgress(status),
+            hoursTotal: 30,
+            coverImageUrl: game.cover_image_url ?? null,
+          };
+        });
+
+        setBacklogPreview(preview);
+      } catch (err) {
+        if (!active) {
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Failed to load account data");
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthorized]);
+
   const profileUser = useMemo(() => {
     if (!sessionUser) {
-      return MOCK_USER;
+      return {
+        username: "Player",
+        avatar: "",
+        bio: "Track your favorites, reviews, and backlog here.",
+      };
     }
 
     return {
-      ...MOCK_USER,
       username: sessionUser.username,
       avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(sessionUser.username)}`,
       bio: `Signed in as ${sessionUser.email}`,
     };
   }, [sessionUser]);
 
-  const maxRatingCount = Math.max(...MOCK_USER.ratingsDistribution.map(r => r.count));
-  const memberSince = getMemberSinceLabel(sessionUser) ?? MOCK_USER.joinDate;
+  const memberSince = getMemberSinceLabel(sessionUser) ?? "2026";
+
+  const ratingDistribution = useMemo(() => {
+    const distribution = [
+      { stars: 1, count: 0 },
+      { stars: 2, count: 0 },
+      { stars: 3, count: 0 },
+      { stars: 4, count: 0 },
+      { stars: 5, count: 0 },
+    ];
+
+    for (const review of reviews) {
+      const bucket = Math.min(5, Math.max(1, Math.ceil(review.score / 2)));
+      distribution[bucket - 1].count += 1;
+    }
+
+    return distribution;
+  }, [reviews]);
+
+  const maxRatingCount = Math.max(...ratingDistribution.map((r) => r.count), 1);
+
+  const stats = {
+    games: backlogPreview.length,
+    reviews: reviews.length,
+    following: 0,
+    followers: 0,
+  };
+
+  const reviewCards = useMemo(() => {
+    return reviews.map((review) => ({
+      id: review.id ?? review.ID ?? review.game_id,
+      gameId: review.game_id,
+      game: gameTitleById[review.game_id] ?? `Game #${review.game_id}`,
+      rating: review.score,
+      date: formatDate(getReviewCreatedAt(review)),
+      text: review.text ?? "",
+      coverImageUrl: gameCoverById[review.game_id] ?? null,
+    }));
+  }, [gameCoverById, gameTitleById, reviews]);
+
+  const recentActivity = reviewCards.slice(0, 4);
+
+  const startEditingReview = (review: ApiReview) => {
+    setError(null);
+    setEditingReviewGameId(review.game_id);
+    setDraftReviewScore(String(normalizeReviewScore(review.score)));
+    setDraftReviewText(review.text ?? "");
+  };
+
+  const cancelEditingReview = () => {
+    setEditingReviewGameId(null);
+    setDraftReviewScore("0");
+    setDraftReviewText("");
+  };
+
+  const handleFavoriteRemove = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyFavoriteId(gameId);
+
+    const previous = favorites;
+    setFavorites((current) => current.filter((game) => game.id !== gameId));
+
+    try {
+      await removeFavoriteByGame(user.id, gameId);
+    } catch (err) {
+      setFavorites(previous);
+      setError(err instanceof Error ? err.message : "Failed to update favorites");
+    } finally {
+      setBusyFavoriteId(null);
+    }
+  };
+
+  const handleReviewSave = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    const nextScore = Number(draftReviewScore);
+    if (!Number.isFinite(nextScore) || nextScore < 1 || nextScore > 10) {
+      setError("Rating must be between 1 and 10");
+      return;
+    }
+
+    setError(null);
+    setBusyReviewGameId(gameId);
+
+    const trimmedText = draftReviewText.trim();
+
+    try {
+      const savedReview = await updateReview(user.id, gameId, {
+        score: nextScore,
+        text: trimmedText || undefined,
+      });
+
+      setReviews((current) =>
+        current.map((review) => {
+          if (review.game_id !== gameId) {
+            return review;
+          }
+
+          return {
+            ...review,
+            ...savedReview,
+            score: nextScore,
+            text: trimmedText || null,
+          };
+        }),
+      );
+      cancelEditingReview();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update review");
+    } finally {
+      setBusyReviewGameId(null);
+    }
+  };
+
+  const handleReviewDelete = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setDeletingReviewGameId(gameId);
+
+    const previous = reviews;
+    setReviews((current) => current.filter((review) => review.game_id !== gameId));
+
+    try {
+      await deleteReview(user.id, gameId);
+      if (editingReviewGameId === gameId) {
+        cancelEditingReview();
+      }
+    } catch (err) {
+      setReviews(previous);
+      setError(err instanceof Error ? err.message : "Failed to delete review");
+    } finally {
+      setDeletingReviewGameId(null);
+    }
+  };
+
+  const handleBacklogStatusChange = async (gameId: number, nextStatus: BacklogStatus) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyBacklogGameId(gameId);
+
+    const previous = backlogPreview;
+    setBacklogPreview((current) =>
+      current.map((game) =>
+        game.id === gameId
+          ? {
+              ...game,
+              status: nextStatus,
+              progress: statusToProgress(nextStatus),
+            }
+          : game,
+      ),
+    );
+
+    try {
+      await updatePlaylistStatusByGame(user.id, gameId, toApiBacklogStatus(nextStatus));
+    } catch (err) {
+      setBacklogPreview(previous);
+      setError(err instanceof Error ? err.message : "Failed to update backlog item");
+    } finally {
+      setBusyBacklogGameId(null);
+    }
+  };
+
+  const handleBacklogRemove = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyBacklogGameId(gameId);
+
+    const previous = backlogPreview;
+    setBacklogPreview((current) => current.filter((game) => game.id !== gameId));
+
+    try {
+      await removeFromPlaylist(user.id, gameId);
+    } catch (err) {
+      setBacklogPreview(previous);
+      setError(err instanceof Error ? err.message : "Failed to remove backlog item");
+    } finally {
+      setBusyBacklogGameId(null);
+    }
+  };
 
   if (!isAuthorized) {
     return null;
   }
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-16 px-4">
+        <p className="text-muted-foreground">Loading account...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <main className="container mx-auto py-10 px-4 space-y-8">
-        
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-border/60 pb-8">
           <div className="flex items-center gap-6">
             <Avatar className="w-24 h-24 ring-4 ring-abyss-800 shadow-xl">
               <AvatarImage src={profileUser.avatar} alt={profileUser.username} />
-              <AvatarFallback className="text-2xl bg-abyss-800 text-azure-50">{getInitials(profileUser.username)}</AvatarFallback>
+              <AvatarFallback className="text-2xl bg-abyss-800 text-azure-50">
+                {getInitials(profileUser.username)}
+              </AvatarFallback>
             </Avatar>
             <div className="space-y-2">
               <div className="flex items-center gap-4">
                 <h1 className="text-3xl font-bold tracking-tight">{profileUser.username}</h1>
-                <Button variant="outline" size="sm" className="hidden sm:flex border-abyss-700 bg-abyss-900/50 hover:bg-abyss-800 text-azure-100 hover:text-white">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex border-abyss-700 bg-abyss-900/50 hover:bg-abyss-800 text-azure-100 hover:text-white"
+                  disabled
+                >
                   <Settings className="w-4 h-4 mr-2" /> Edit Profile
                 </Button>
               </div>
@@ -116,19 +495,19 @@ export default function AccountPage() {
 
           <div className="grid grid-cols-2 lg:flex gap-3 w-full lg:w-auto">
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{MOCK_USER.stats.games}</span>
+              <span className="text-2xl font-bold">{stats.games}</span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Total Games</span>
             </div>
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{MOCK_USER.stats.reviews}</span>
+              <span className="text-2xl font-bold">{stats.reviews}</span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Reviews</span>
             </div>
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{MOCK_USER.stats.following}</span>
+              <span className="text-2xl font-bold">{stats.following}</span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Following</span>
             </div>
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{MOCK_USER.stats.followers}</span>
+              <span className="text-2xl font-bold">{stats.followers}</span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Followers</span>
             </div>
           </div>
@@ -150,141 +529,290 @@ export default function AccountPage() {
                 <section>
                   <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-4">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Favorite Games</h3>
-                    <span className="text-xs text-muted-foreground cursor-pointer hover:text-azure-400">Edit Favorites</span>
+                    <span className="text-xs text-muted-foreground">Remove favorites from here</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {MOCK_USER.favorites.map((game) => (
-                      <div key={game.id} className="relative aspect-[3/4] rounded-md overflow-hidden group border border-abyss-700 shadow-md bg-abyss-800/50 hover:bg-abyss-800 transition-colors flex items-center justify-center p-4">
-                        <p className="text-azure-50 font-medium text-center">{game.title}</p>
-                      </div>
-                    ))}
-                  </div>
+                  {favorites.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {favorites.slice(0, 8).map((game) => (
+                        <div key={game.id} className="relative aspect-[3/4] rounded-md overflow-hidden group border border-abyss-700 shadow-md bg-abyss-800/50">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            className="absolute right-2 top-2 z-20 h-8 w-8 border border-abyss-700 bg-abyss-950/90 text-azure-50 hover:bg-abyss-900"
+                            onClick={() => handleFavoriteRemove(game.id)}
+                            disabled={busyFavoriteId === game.id}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <img src={changeImageSize(game.cover_image_url, "cover_big")} alt={game.title} className="w-full h-full object-cover opacity-70" />
+                          <div className="absolute inset-0 bg-black/35 flex items-end p-2">
+                            <p className="text-azure-50 font-medium text-xs sm:text-sm line-clamp-2">{game.title}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No favorite games yet.</p>
+                  )}
                 </section>
 
                 <section>
                   <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-4">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Recent Activity</h3>
-                    <span className="text-xs text-muted-foreground cursor-pointer hover:text-azure-400">All Activity</span>
+                    <span className="text-xs text-muted-foreground">Latest reviews</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {MOCK_USER.recentActivity.map((activity) => (
-                      <div key={activity.id} className="space-y-3 group cursor-pointer">
-                        <div className="relative aspect-[3/4] rounded-md overflow-hidden border border-abyss-700 shadow-md bg-abyss-800/50 hover:bg-abyss-800 transition-colors flex items-center justify-center p-4">
-                          <p className="text-azure-50 font-medium text-center leading-snug">{activity.title}</p>
+                  {recentActivity.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {recentActivity.map((activity) => (
+                        <div key={activity.id} className="space-y-3 group">
+                          <div className="relative aspect-[3/4] rounded-md overflow-hidden border border-abyss-700 shadow-md bg-abyss-800/50">
+                            <img
+                              src={changeImageSize(activity.coverImageUrl, "cover_big")}
+                              alt={activity.game}
+                              className="w-full h-full object-cover opacity-75"
+                            />
+                            <div className="absolute inset-0 bg-black/35 flex items-end p-2">
+                              <p className="text-azure-50 font-medium text-xs sm:text-sm line-clamp-2">{activity.game}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-center gap-1.5">
+                            <Badge className="bg-abyss-900/80 border border-abyss-700 flex gap-1 items-center text-abyss-50 text-xs">
+                              <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {activity.rating}/10
+                            </Badge>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{activity.date}</p>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-center gap-1.5">
-                          <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50 text-xs">
-                            <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {activity.rating}
-                          </Badge>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{activity.date}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No recent review activity.</p>
+                  )}
                 </section>
               </div>
+
               <div className="lg:col-span-4 space-y-10">
                 <section className="space-y-3 pt-2">
                   <p className="text-sm text-muted-foreground leading-relaxed">{profileUser.bio}</p>
                   <a href="#" className="inline-flex items-center gap-1.5 text-sm text-azure-500 hover:text-azure-400 transition-colors font-medium">
-                    <Link className="w-3.5 h-3.5" /> github.com/{profileUser.username}
+                    <LinkIcon className="w-3.5 h-3.5" /> github.com/{profileUser.username}
                   </a>
                 </section>
 
                 <section>
                   <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-6">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Ratings</h3>
-                    <span className="text-xs text-azure-500 font-bold">{MOCK_USER.stats.reviews} Total</span>
+                    <span className="text-xs text-azure-500 font-bold">{stats.reviews} Total</span>
                   </div>
-                  
+
                   <div className="flex h-32 gap-1.5 px-2">
-                    {MOCK_USER.ratingsDistribution.map((rate) => {
+                    {ratingDistribution.map((rate) => {
                       const heightPercentage = Math.max((rate.count / maxRatingCount) * 100, 4);
                       return (
                         <div key={rate.stars} className="flex-1 flex flex-col justify-end group h-full">
                           <div className="text-center text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mb-1">{rate.count}</div>
-                          <div 
-                            className="w-full bg-azure-500 rounded-t-sm hover:bg-azure-400 transition-colors cursor-pointer"
-                            style={{ height: `${heightPercentage}%` }}
-                          />
+                          <div className="w-full bg-azure-500 rounded-t-sm" style={{ height: `${heightPercentage}%` }} />
                           <div className="mt-2 text-center text-xs text-abyss-400 font-medium">
-                            {rate.stars}<Star className="w-2.5 h-2.5 inline fill-abyss-400 ml-0.5 -mt-0.5" />
+                            {rate.stars}
+                            <Star className="w-2.5 h-2.5 inline fill-abyss-400 ml-0.5 -mt-0.5" />
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 </section>
+              </div>
+            </div>
+          </TabsContent>
 
-              </div>
-            </div>
-          </TabsContent>
-          
           <TabsContent value="reviews" className="mt-8 outline-none animate-in fade-in-50 duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
-              {MOCK_USER.reviews.map((review) => (
-                <div key={review.id} className="flex flex-col bg-abyss-900 border border-abyss-800 rounded-lg overflow-hidden hover:border-azure-500/50 hover:shadow-[0_0_15px_rgba(26,133,255,0.1)] transition-all duration-300">
-                  {/* Banner Placeholder */}
-                  <div className="w-full h-24 bg-abyss-950 border-b border-abyss-800 relative flex items-center justify-center">
-                    <div className="absolute inset-0 bg-gradient-to-t from-abyss-900 via-transparent to-transparent z-10"></div>
-                    <span className="text-[10px] text-abyss-700 font-bold tracking-widest uppercase z-0 opacity-40">{review.game} Art</span>
-                  </div>
-                  
-                  <div className="p-5 flex flex-col flex-1">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="min-w-0 pr-2">
-                        <h4 className="font-bold text-lg text-azure-50 leading-tight truncate">{review.game}</h4>
-                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">{review.date}</p>
-                      </div>
-                      <Badge className="bg-abyss-950 hover:bg-abyss-900 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50 shrink-0 shadow-sm">
-                        <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {review.rating}
-                      </Badge>
+            {reviewCards.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
+                {reviewCards.map((review) => (
+                  <div key={review.id} className="flex flex-col bg-abyss-900 border border-abyss-800 rounded-lg overflow-hidden hover:border-azure-500/50 hover:shadow-[0_0_15px_rgba(26,133,255,0.1)] transition-all duration-300">
+                    <div className="w-full h-24 bg-abyss-950 border-b border-abyss-800 relative overflow-hidden">
+                      <img
+                        src={changeImageSize(review.coverImageUrl, "screenshot_med")}
+                        alt={review.game}
+                        className="w-full h-full object-cover opacity-55"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-abyss-900 via-black/20 to-transparent z-10"></div>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed flex-1 mt-1">{review.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-          <TabsContent value="backlog" className="mt-8 outline-none animate-in fade-in-50 duration-500">
-            <div className="w-full">
-              <div className="flex justify-between items-baseline mb-6 border-b border-border/40 pb-2">
-                 <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Recently Added to Backlog</h3>
-                 <span className="text-xs text-azure-500 hover:text-azure-400 transition-colors cursor-pointer font-medium">View Full Backlog &rarr;</span>
-              </div>
-              <div className="flex flex-col gap-4">
-                {MOCK_USER.backlogPreview.map((game) => (
-                  <div key={game.id} className="flex flex-row items-center p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-800 rounded-lg hover:bg-gradient-to-r hover:from-abyss-800 hover:to-abyss-900 hover:border-azure-500/30 transition-all group">
-                    <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800 flex items-center justify-center">
-                       <span className="text-[10px] text-center text-abyss-500 px-1 font-medium">{game.title}</span>
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-0 justify-center">
-                      <h4 className="font-bold text-lg truncate group-hover:text-azure-300 transition-colors">{game.title}</h4>
-                      <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
-                        <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
-                        <span className="font-medium text-foreground/80 text-xs sm:text-sm">In Backlog</span>
+
+                    <div className="p-5 flex flex-col flex-1">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="min-w-0 pr-2">
+                          <h4 className="font-bold text-lg text-azure-50 leading-tight truncate">{review.game}</h4>
+                          <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">{review.date}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge className="bg-abyss-950 border border-abyss-700 flex gap-1 items-center text-abyss-50 shadow-sm">
+                            <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {review.rating}/10
+                          </Badge>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 border-abyss-700 bg-abyss-950/70 hover:bg-abyss-900"
+                            onClick={() => {
+                              const sourceReview = reviews.find((item) => item.game_id === review.gameId);
+                              if (sourceReview) {
+                                startEditingReview(sourceReview);
+                              }
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 border-abyss-700 bg-abyss-950/70 hover:bg-abyss-900"
+                            onClick={() => handleReviewDelete(review.gameId)}
+                            disabled={deletingReviewGameId === review.gameId || busyReviewGameId === review.gameId}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                         <span>Est. {game.hoursTotal}h</span>
-                         <span className="font-medium text-foreground">{game.progress}%</span>
-                      </div>
-                      <div className="h-2 w-full bg-abyss-950 rounded-full overflow-hidden border border-abyss-800">
-                        <div className="h-full bg-azure-500" style={{ width: `${game.progress}%` }} />
-                      </div>
-                    </div>
-                    <div className="shrink-0 flex items-center justify-center pl-4 sm:pl-6 border-l border-abyss-800">
-                      <span className="text-xs text-azure-500 group-hover:text-azure-400 font-bold cursor-pointer flex items-center gap-1 transition-colors uppercase tracking-wider">Manage</span>
+
+                      {editingReviewGameId === review.gameId ? (
+                        <div className="mt-1 flex flex-1 flex-col gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Rating</label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              step={1}
+                              value={draftReviewScore}
+                              onChange={(event) => setDraftReviewScore(event.target.value)}
+                              className="border-abyss-700 bg-abyss-950/70"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Review</label>
+                            <textarea
+                              value={draftReviewText}
+                              onChange={(event) => setDraftReviewText(event.target.value)}
+                              rows={5}
+                              className="min-h-28 w-full rounded-md border border-abyss-700 bg-abyss-950/70 px-3 py-2 text-sm text-foreground outline-none transition focus:border-azure-500"
+                            />
+                          </div>
+
+                          <div className="mt-auto flex items-center gap-2">
+                            <Button
+                              type="button"
+                              className="gap-2 bg-azure-600 hover:bg-azure-500 text-white"
+                              onClick={() => handleReviewSave(review.gameId)}
+                              disabled={busyReviewGameId === review.gameId}
+                            >
+                              <Save className="h-4 w-4" /> Save
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
+                              onClick={() => handleReviewDelete(review.gameId)}
+                              disabled={deletingReviewGameId === review.gameId || busyReviewGameId === review.gameId}
+                            >
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
+                              onClick={cancelEditingReview}
+                              disabled={busyReviewGameId === review.gameId || deletingReviewGameId === review.gameId}
+                            >
+                              <X className="h-4 w-4" /> Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground leading-relaxed flex-1 mt-1">{review.text}</p>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No reviews posted yet.</p>
+            )}
+          </TabsContent>
+
+          <TabsContent value="backlog" className="mt-8 outline-none animate-in fade-in-50 duration-500">
+            <div className="w-full">
+              <div className="flex justify-between items-baseline mb-6 border-b border-border/40 pb-2">
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Backlog</h3>
+                <span className="text-xs text-azure-500 font-medium">Update status or remove games here</span>
+              </div>
+              {backlogPreview.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {backlogPreview.map((game) => (
+                    <div key={game.id} className="flex flex-row items-center p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-800 rounded-lg">
+                      <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800">
+                        <img
+                          src={changeImageSize(game.coverImageUrl, "cover_big")}
+                          alt={game.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-col flex-1 min-w-0 justify-center">
+                        <h4 className="font-bold text-lg truncate">{game.title}</h4>
+                        <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
+                          <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
+                          <span className="font-medium text-foreground/80 text-xs sm:text-sm">{formatBacklogStatus(game.status)}</span>
+                        </div>
+                      </div>
+                      <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Est. {game.hoursTotal}h</span>
+                          <span className="font-medium text-foreground">{game.progress}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-abyss-950 rounded-full overflow-hidden border border-abyss-800">
+                          <div className="h-full bg-azure-500" style={{ width: `${game.progress}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex min-w-[168px] flex-col gap-2">
+                        <Select
+                          value={game.status}
+                          onValueChange={(value) => handleBacklogStatusChange(game.id, value as BacklogStatus)}
+                          disabled={busyBacklogGameId === game.id}
+                        >
+                          <SelectTrigger className="border-abyss-700 bg-abyss-950/80">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="backlog">Backlog</SelectItem>
+                            <SelectItem value="playing">Playing</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="abandoned">Abandoned</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
+                          onClick={() => handleBacklogRemove(game.id)}
+                          disabled={busyBacklogGameId === game.id}
+                        >
+                          <Trash2 className="h-4 w-4" /> Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No backlog games yet.</p>
+              )}
             </div>
           </TabsContent>
+
           <TabsContent value="lists" className="mt-8 outline-none animate-in fade-in-50 duration-500">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {MOCK_USER.lists.map((list) => (
+              {MOCK_LISTS.map((list) => (
                 <div key={list.id} className="relative group cursor-pointer mt-2">
                   <div className="absolute -inset-1 bg-gradient-to-r from-azure-600 to-azure-400 rounded-lg blur opacity-10 group-hover:opacity-30 transition duration-500"></div>
                   <div className="relative bg-abyss-900 border border-abyss-800 rounded-lg p-5 flex flex-col gap-5 hover:bg-abyss-800/80 transition-all duration-300 ease-out shadow-lg">
@@ -296,25 +824,9 @@ export default function AccountPage() {
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-azure-500" /> {list.updated}</span>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-[10px] py-0 h-5 bg-abyss-950 border-abyss-700 text-muted-foreground group-hover:border-azure-500/50 group-hover:text-azure-400 transition-colors duration-300 shadow-sm shrink-0">
-                         ♥ {list.likes}
+                      <Badge variant="outline" className="text-[10px] py-0 h-5 bg-abyss-950 border-abyss-700 text-muted-foreground shrink-0">
+                        ♥ {list.likes}
                       </Badge>
-                    </div>
-                    
-                    <div className="flex items-end mt-1">
-                      <div className="flex -space-x-4">
-                        {[1, 2, 3, 4, 5].slice(0, Math.min(5, list.gameCount)).map(i => (
-                           <div key={i} className="w-12 h-16 rounded shadow-md bg-abyss-950 border border-abyss-700 flex items-center justify-center overflow-hidden shrink-0 relative transition-transform duration-300 ease-out group-hover:-translate-y-1 hover:!translate-y-[-8px] hover:z-20">
-                             <div className="absolute inset-0 bg-gradient-to-br from-transparent to-abyss-900/60 mix-blend-overlay"></div>
-                             <LayoutGrid className="w-4 h-4 text-abyss-800 opacity-60" />
-                           </div>
-                        ))}
-                        {list.gameCount > 5 && (
-                          <div className="w-12 h-16 rounded border border-abyss-800/50 flex items-center justify-center shrink-0 z-10 backdrop-blur-sm -ml-2 pl-2 transition-transform duration-300 ease-out group-hover:-translate-y-1">
-                            <span className="text-[10px] text-muted-foreground font-bold">+{list.gameCount - 5}</span>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
