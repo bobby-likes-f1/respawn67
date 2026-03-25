@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Plus, User, Menu } from "lucide-react";
+import { Plus, User, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -12,6 +14,7 @@ import {
 export function Navbar() {
   const location = useLocation();
   const isLandingPage = location.pathname === "/";
+  const [searchBarLight, setSearchBarLight] = useState(false);
 
   const navLinks = isLandingPage
     ? [
@@ -79,6 +82,27 @@ export function Navbar() {
                 <Plus className="h-4 w-4" />
                 LOG GAME
               </Button>
+
+              <div 
+                className={`hidden sm:flex items-center px-3 py-1.5 rounded-full border cursor-pointer transition-all ${
+                  searchBarLight 
+                    ? 'bg-white border-border/50 hover:border-gray-300' 
+                    : 'bg-slate-800 border-border/50 hover:border-azure-400/50'
+                }`}
+              >
+                <Search className={`h-4 w-4 mr-2 ${searchBarLight ? 'text-gray-400' : 'text-muted-foreground'}`} />
+                <Input
+                  type="text"
+                  placeholder="Search games..."
+                  onFocus={() => setSearchBarLight(true)}
+                  onBlur={() => setSearchBarLight(false)}
+                  className={`border-0 bg-transparent text-sm focus-visible:outline-none focus-visible:ring-0 ${
+                    searchBarLight 
+                      ? 'text-black placeholder:text-gray-400' 
+                      : 'text-foreground placeholder:text-muted-foreground'
+                  }`}
+                />
+              </div>
 
               <NavigationMenu>
                 <NavigationMenuList>
