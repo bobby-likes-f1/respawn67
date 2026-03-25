@@ -220,3 +220,10 @@ export function updateReview(
     body: payload,
   });
 }
+
+export function deleteReview(userId: number, gameId: number) {
+  return apiRequest<{ message: string }>(`/reviews/user/${userId}/game/${gameId}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}

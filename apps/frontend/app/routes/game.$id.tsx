@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, type LoaderFunctionArgs, useLoaderData } from "react-router";
 import { Badge } from "@/components/ui/badge";
-import { Star, Eye, Heart, ListPlus, LayoutGrid } from "lucide-react";
+import {
+  Star,
+  Eye,
+  Heart,
+  ListPlus,
+  LayoutGrid,
+  CircleCheckBig,
+  CircleAlert,
+  MessageCircleMore,
+} from "lucide-react";
 import {
   addFavorite,
   addToPlaylist,
   createReview,
+  deleteReview,
   getFavoriteEntries,
   getGameById,
   getPlaylistEntries,
@@ -20,7 +30,6 @@ import { getStoredUser, getToken } from "@/lib/auth";
 const FALLBACK_COVER =
   "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
 
-// helper to change igdb image size
 function changeImageSize(url: string | null | undefined, size: string): string {
   if (!url) return "https://via.placeholder.com/264x374?text=No+Image";
   return url.replace(/t_[a-z0-9]+/, `t_${size}`);
@@ -100,10 +109,9 @@ export default function GameDetailsPage() {
   const gameId = Number(loaderData.id);
   const uiData = toUiGameData(loaderData.gameData, loaderData.id ?? "1");
 
-  const sessionUser = getStoredUser();
+  const sessionUser = useMemo(() => getStoredUser(), []);
   const isAuthenticated = Boolean(sessionUser && getToken());
 
-  const [isReviewed, setIsReviewed] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [inPlaylist, setInPlaylist] = useState(false);
 
@@ -113,9 +121,36 @@ export default function GameDetailsPage() {
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewText, setReviewText] = useState("");
   const [hasExistingReview, setHasExistingReview] = useState(false);
+  const [reviewUpdatedAt, setReviewUpdatedAt] = useState<string | null>(null);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewToast, setReviewToast] = useState<{
+    message: string;
+    tone: "success" | "warning" | "info";
+  } | null>(null);
+  const isReviewed = rating > 0;
+
+  useEffect(() => {
+    if (!reviewToast?.message) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setReviewToast(null);
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [reviewToast]);
+
+  const showReviewToast = (
+    message: string,
+    tone: "success" | "warning" | "info" = "info",
+  ) => {
+    setReviewToast({ message, tone });
+  };
 
   useEffect(() => {
     if (!isAuthenticated || !sessionUser || Number.isNaN(gameId)) {
@@ -144,9 +179,15 @@ export default function GameDetailsPage() {
         const existingReview = reviewEntries[0];
         if (existingReview) {
           setHasExistingReview(true);
-          setIsReviewed(true);
           setRating(existingReview.score);
           setReviewText(existingReview.text ?? "");
+          setReviewUpdatedAt(
+            existingReview.updated_at ?? existingReview.UpdatedAt ?? existingReview.created_at ?? existingReview.CreatedAt ?? null,
+          );
+        } else {
+          setHasExistingReview(false);
+          setReviewText("");
+          setReviewUpdatedAt(null);
         }
       } catch (err) {
         if (!active) {
@@ -159,14 +200,64 @@ export default function GameDetailsPage() {
     return () => {
       active = false;
     };
-  }, [gameId, isAuthenticated, sessionUser]);
+  }, [gameId, isAuthenticated, sessionUser?.id]);
 
   const interactionLabel = useMemo(() => {
     if (isSyncing) {
       return "Saving...";
     }
-    return "Review or log...";
-  }, [isSyncing]);
+    if (rating < 1) {
+      return "Set a rating to review";
+    }
+    return isReviewed ? "Edit review" : "Write review";
+  }, [isReviewed, isSyncing, rating]);
+
+  const openReviewEditor = () => {
+    if (isSyncing) {
+      return;
+    }
+
+    if (rating < 1) {
+      showReviewToast("Set a rating first.", "warning");
+      return;
+    }
+
+    setError(null);
+    setIsReviewing(true);
+  };
+
+  const handleReviewDelete = async () => {
+    if (!sessionUser || Number.isNaN(gameId) || !hasExistingReview) {
+      return;
+    }
+
+    setError(null);
+    setIsSyncing(true);
+
+    const previousText = reviewText;
+    const previousRating = rating;
+    const previousUpdatedAt = reviewUpdatedAt;
+
+    setHasExistingReview(false);
+    setReviewText("");
+    setRating(0);
+    setHoverRating(0);
+    setReviewUpdatedAt(null);
+    setIsReviewing(false);
+
+    try {
+      await deleteReview(sessionUser.id, gameId);
+      showReviewToast("Review deleted.", "success");
+    } catch (err) {
+      setHasExistingReview(true);
+      setReviewText(previousText);
+      setRating(previousRating);
+      setReviewUpdatedAt(previousUpdatedAt);
+      setError(err instanceof Error ? err.message : "Failed to delete review");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const toggleFavorite = async () => {
     if (!sessionUser || Number.isNaN(gameId)) {
@@ -220,7 +311,7 @@ export default function GameDetailsPage() {
 
   const saveReview = async () => {
     if (!sessionUser || Number.isNaN(gameId) || rating < 1) {
-      setError("Please set a rating first");
+      showReviewToast("Set a rating first.", "warning");
       return;
     }
 
@@ -234,19 +325,25 @@ export default function GameDetailsPage() {
 
     try {
       if (hasExistingReview) {
-        await updateReview(sessionUser.id, gameId, payload);
+        const updatedReview = await updateReview(sessionUser.id, gameId, payload);
+        setReviewUpdatedAt(
+          updatedReview.updated_at ?? updatedReview.UpdatedAt ?? updatedReview.created_at ?? updatedReview.CreatedAt ?? null,
+        );
       } else {
-        await createReview({
+        const createdReview = await createReview({
           user_id: sessionUser.id,
           game_id: gameId,
           score: rating,
           text: reviewText.trim() || undefined,
         });
         setHasExistingReview(true);
+        setReviewUpdatedAt(
+          createdReview.updated_at ?? createdReview.UpdatedAt ?? createdReview.created_at ?? createdReview.CreatedAt ?? null,
+        );
       }
 
-      setIsReviewed(true);
       setIsReviewing(false);
+      showReviewToast(hasExistingReview ? "Review updated." : "Review saved.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save review");
     } finally {
@@ -256,6 +353,29 @@ export default function GameDetailsPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col relative pb-24 select-none">
+      {reviewToast ? (
+        <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div
+            className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur ${
+              reviewToast.tone === "success"
+                ? "border-azure-400/60 bg-abyss-900/95 text-azure-50"
+                : reviewToast.tone === "warning"
+                  ? "border-azure-300/55 bg-abyss-800/95 text-azure-100"
+                  : "border-abyss-600/90 bg-abyss-900/95 text-abyss-100"
+            }`}
+          >
+            {reviewToast.tone === "success" ? (
+              <CircleCheckBig className="h-4 w-4 shrink-0 text-azure-300" />
+            ) : reviewToast.tone === "warning" ? (
+              <CircleAlert className="h-4 w-4 shrink-0 text-azure-200" />
+            ) : (
+              <MessageCircleMore className="h-4 w-4 shrink-0 text-abyss-200" />
+            )}
+            <span>{reviewToast.message}</span>
+          </div>
+        </div>
+      ) : null}
+
       <div className="w-full h-[45vh] sm:h-[55vh] relative flex items-center justify-center bg-abyss-950 overflow-hidden pointer-events-none">
         <img
           src={uiData.bannerImage}
@@ -358,7 +478,7 @@ export default function GameDetailsPage() {
               <div className="w-12 h-12 rounded-full bg-abyss-950/80 border border-abyss-800 flex items-center justify-center mb-1 shadow-inner">
                 <Eye className="w-5 h-5 text-azure-500/80" />
               </div>
-              <h3 className="text-lg font-bold text-azure-50 tracking-tight leading-tight">Sign in to log, rate or review</h3>
+              <h3 className="text-lg font-bold text-azure-50 tracking-tight leading-tight">Sign in to rate or review</h3>
               <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">Share your gaming experiences, track your backlog, and join the community.</p>
               <Link
                 to="/login"
@@ -373,7 +493,7 @@ export default function GameDetailsPage() {
 
               <div className="grid grid-cols-3 bg-abyss-950/60 divide-x divide-abyss-800/60">
                 <div
-                  onClick={() => setIsReviewed(!isReviewed)}
+                  onClick={openReviewEditor}
                   className={`p-3 pb-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all duration-300 group hover:bg-azure-500/10 ${isReviewed ? "bg-azure-500/5 hover:bg-azure-500/15" : ""}`}
                 >
                   <Eye className={`w-7 h-7 stroke-1 pb-1 transition-all duration-300 ${isReviewed ? "text-azure-400" : "text-muted-foreground group-hover:text-azure-400"}`} />
@@ -435,16 +555,16 @@ export default function GameDetailsPage() {
                           className="absolute top-0 left-0 w-1/2 h-full z-10"
                           onMouseEnter={() => setHoverRating(valLeft)}
                           onClick={() => {
-                            setRating(rating === valLeft ? 0 : valLeft);
-                            setIsReviewed(true);
+                            setRating(valLeft);
+                            setError(null);
                           }}
                         />
                         <div
                           className="absolute top-0 right-0 w-1/2 h-full z-10"
                           onMouseEnter={() => setHoverRating(valRight)}
                           onClick={() => {
-                            setRating(rating === valRight ? 0 : valRight);
-                            setIsReviewed(true);
+                            setRating(valRight);
+                            setError(null);
                           }}
                         />
                       </div>
@@ -457,20 +577,20 @@ export default function GameDetailsPage() {
                 {isReviewing ? (
                   <div className="p-3 bg-abyss-950/40 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-[10px] uppercase font-bold text-azure-400 tracking-wider">Log Activity</span>
+                      <span className="text-[10px] uppercase font-bold text-azure-400 tracking-wider">Review</span>
                       <span className="text-[10px] text-muted-foreground">{new Date().toLocaleDateString()}</span>
                     </div>
                     <textarea
                       autoFocus
                       value={reviewText}
                       onChange={(e) => setReviewText(e.target.value)}
-                      placeholder="Write your review or thoughts..."
+                      placeholder="Write your review..."
                       className="w-full bg-abyss-900/80 border border-abyss-700/80 rounded-md p-3 text-sm text-azure-50 placeholder:text-muted-foreground/60 resize-none focus:outline-none focus:border-azure-500 focus:ring-1 focus:ring-azure-500 min-h-[96px] shadow-inner"
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={() => setIsReviewing(false)}
-                        className="flex-1 py-2 rounded-md bg-abyss-800 hover:bg-abyss-700 text-muted-foreground hover:text-white transition-colors text-xs uppercase tracking-wider font-bold"
+                        className="flex-1 cursor-pointer py-2 rounded-md bg-abyss-800 hover:bg-abyss-700 text-muted-foreground hover:text-white transition-colors text-xs uppercase tracking-wider font-bold"
                       >
                         Cancel
                       </button>
@@ -478,15 +598,52 @@ export default function GameDetailsPage() {
                         onClick={() => {
                           void saveReview();
                         }}
-                        className="flex-[2] py-2 rounded-md bg-azure-600 hover:bg-azure-500 text-white transition-colors shadow-[0_0_8px_rgba(56,189,248,0.4)] text-xs uppercase tracking-wider font-bold"
+                        className="flex-[2] cursor-pointer py-2 rounded-md bg-azure-600 hover:bg-azure-500 text-white transition-colors shadow-[0_0_8px_rgba(56,189,248,0.4)] text-xs uppercase tracking-wider font-bold"
                       >
-                        {isSyncing ? "Saving..." : "Save Log"}
+                        {isSyncing ? "Saving..." : "Save Review"}
                       </button>
+                    </div>
+                  </div>
+                ) : hasExistingReview ? (
+                  <div className="border-t border-abyss-800/60 p-4">
+                    <div className="rounded-lg border border-abyss-800 bg-abyss-950/50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-azure-400">Your review</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {reviewUpdatedAt ? new Date(reviewUpdatedAt).toLocaleDateString() : "Saved just now"}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="border-abyss-700 bg-abyss-900 text-azure-50">
+                          <Star className="mr-1 h-3 w-3 fill-azure-400 text-azure-400" /> {rating}/10
+                        </Badge>
+                      </div>
+
+                      <p className="mt-4 whitespace-pre-wrap text-sm font-normal leading-relaxed text-muted-foreground">
+                        {reviewText.trim() || "No written review yet. You rated this game."}
+                      </p>
+
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          onClick={openReviewEditor}
+                          className="flex-1 cursor-pointer rounded-md bg-abyss-800 py-2 text-xs font-bold uppercase tracking-wider text-azure-50 transition-colors hover:bg-abyss-700"
+                        >
+                          Edit review
+                        </button>
+                        <button
+                          onClick={() => {
+                            void handleReviewDelete();
+                          }}
+                          className="flex-1 cursor-pointer rounded-md border border-abyss-700 bg-transparent py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-abyss-800 hover:text-white"
+                        >
+                          {isSyncing ? "Deleting..." : "Delete review"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
                   <div
-                    onClick={() => setIsReviewing(true)}
+                    onClick={openReviewEditor}
                     className="py-4 px-4 text-center cursor-pointer transition-colors border-t border-abyss-800/60 flex items-center justify-center gap-2 text-muted-foreground/80 hover:bg-abyss-800/80 hover:text-white"
                   >
                     {interactionLabel}

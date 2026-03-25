@@ -144,6 +144,22 @@
     @apply border-border outline-ring/50;
     @apply border-border outline-ring/50;
   }
+
+  button,
+  [role="button"],
+  a[href],
+  summary,
+  [data-slot="button"],
+  [data-radix-collection-item] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
+  }
+
   html {
     scroll-behavior: smooth;
   }

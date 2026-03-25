@@ -1,15 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Star, Settings, Link as LinkIcon, LayoutGrid, Clock } from "lucide-react";
+import {
+  Star,
+  Settings,
+  Link as LinkIcon,
+  LayoutGrid,
+  Clock,
+  Pencil,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   getAllGames,
   getFavoriteGames,
   getPlaylistEntries,
   getPlaylistGames,
   getReviews,
+  deleteReview,
+  removeFavoriteByGame,
+  removeFromPlaylist,
+  updatePlaylistStatusByGame,
+  updateReview,
   type ApiGame,
   type ApiReview,
 } from "@/lib/api";
@@ -28,9 +51,13 @@ type BacklogPreviewItem = {
   id: number;
   title: string;
   platform: string;
+  status: BacklogStatus;
   progress: number;
   hoursTotal: number;
+  coverImageUrl: string | null;
 };
+
+type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
 
 const MOCK_LISTS = [
   { id: 1, title: "Top 10 Souls-likes", gameCount: 10, likes: 24, updated: "1 week ago" },
@@ -46,6 +73,23 @@ function statusToProgress(status: string) {
   if (status === "playing") return 45;
   if (status === "abandoned") return 20;
   return 0;
+}
+
+function normalizeBacklogStatus(status: string): BacklogStatus {
+  if (status === "playing") return "playing";
+  if (status === "completed") return "completed";
+  if (status === "abandoned") return "abandoned";
+  return "backlog";
+}
+
+function toApiBacklogStatus(status: BacklogStatus) {
+  if (status === "backlog") return "want_to_play";
+  return status;
+}
+
+function formatBacklogStatus(status: BacklogStatus) {
+  if (status === "backlog") return "Backlog";
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function formatDate(value?: string) {
@@ -65,6 +109,15 @@ function getReviewCreatedAt(review: ApiReview) {
   return review.created_at ?? review.CreatedAt;
 }
 
+function changeImageSize(url: string | null | undefined, size: string) {
+  if (!url) return FALLBACK_COVER;
+  return url.replace(/t_[a-z0-9]+/, `t_${size}`);
+}
+
+function normalizeReviewScore(score: number) {
+  return Math.min(10, Math.max(1, Math.round(score)));
+}
+
 export default function AccountPage() {
   const isAuthorized = useRequireAuth();
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
@@ -73,9 +126,17 @@ export default function AccountPage() {
   const [reviews, setReviews] = useState<ApiReview[]>([]);
   const [backlogPreview, setBacklogPreview] = useState<BacklogPreviewItem[]>([]);
   const [gameTitleById, setGameTitleById] = useState<Record<number, string>>({});
+  const [gameCoverById, setGameCoverById] = useState<Record<number, string | null>>({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingReviewGameId, setEditingReviewGameId] = useState<number | null>(null);
+  const [draftReviewScore, setDraftReviewScore] = useState("0");
+  const [draftReviewText, setDraftReviewText] = useState("");
+  const [busyFavoriteId, setBusyFavoriteId] = useState<number | null>(null);
+  const [busyReviewGameId, setBusyReviewGameId] = useState<number | null>(null);
+  const [deletingReviewGameId, setDeletingReviewGameId] = useState<number | null>(null);
+  const [busyBacklogGameId, setBusyBacklogGameId] = useState<number | null>(null);
 
   useEffect(() => {
     setSessionUser(getStoredUser());
@@ -115,10 +176,13 @@ export default function AccountPage() {
         setFavorites(favoriteGames);
 
         const titleMap: Record<number, string> = {};
+        const coverMap: Record<number, string | null> = {};
         for (const game of allGames) {
           titleMap[game.id] = game.title;
+          coverMap[game.id] = game.cover_image_url ?? null;
         }
         setGameTitleById(titleMap);
+        setGameCoverById(coverMap);
 
         setReviews(
           userReviews.map((review) => ({
@@ -135,14 +199,16 @@ export default function AccountPage() {
           statusByGameId.set(entry.game_id, entry.status);
         }
 
-        const preview = playlistGames.slice(0, 3).map((game) => {
-          const status = statusByGameId.get(game.id) ?? "want_to_play";
+        const preview = playlistGames.map((game) => {
+          const status = normalizeBacklogStatus(statusByGameId.get(game.id) ?? "want_to_play");
           return {
             id: game.id,
             title: game.title,
             platform: game.genre ?? "Unknown",
+            status,
             progress: statusToProgress(status),
             hoursTotal: 30,
+            coverImageUrl: game.cover_image_url ?? null,
           };
         });
 
@@ -211,14 +277,180 @@ export default function AccountPage() {
   const reviewCards = useMemo(() => {
     return reviews.map((review) => ({
       id: review.id ?? review.ID ?? review.game_id,
+      gameId: review.game_id,
       game: gameTitleById[review.game_id] ?? `Game #${review.game_id}`,
       rating: review.score,
       date: formatDate(getReviewCreatedAt(review)),
       text: review.text ?? "",
+      coverImageUrl: gameCoverById[review.game_id] ?? null,
     }));
-  }, [gameTitleById, reviews]);
+  }, [gameCoverById, gameTitleById, reviews]);
 
   const recentActivity = reviewCards.slice(0, 4);
+
+  const startEditingReview = (review: ApiReview) => {
+    setError(null);
+    setEditingReviewGameId(review.game_id);
+    setDraftReviewScore(String(normalizeReviewScore(review.score)));
+    setDraftReviewText(review.text ?? "");
+  };
+
+  const cancelEditingReview = () => {
+    setEditingReviewGameId(null);
+    setDraftReviewScore("0");
+    setDraftReviewText("");
+  };
+
+  const handleFavoriteRemove = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyFavoriteId(gameId);
+
+    const previous = favorites;
+    setFavorites((current) => current.filter((game) => game.id !== gameId));
+
+    try {
+      await removeFavoriteByGame(user.id, gameId);
+    } catch (err) {
+      setFavorites(previous);
+      setError(err instanceof Error ? err.message : "Failed to update favorites");
+    } finally {
+      setBusyFavoriteId(null);
+    }
+  };
+
+  const handleReviewSave = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    const nextScore = Number(draftReviewScore);
+    if (!Number.isFinite(nextScore) || nextScore < 1 || nextScore > 10) {
+      setError("Rating must be between 1 and 10");
+      return;
+    }
+
+    setError(null);
+    setBusyReviewGameId(gameId);
+
+    const trimmedText = draftReviewText.trim();
+
+    try {
+      const savedReview = await updateReview(user.id, gameId, {
+        score: nextScore,
+        text: trimmedText || undefined,
+      });
+
+      setReviews((current) =>
+        current.map((review) => {
+          if (review.game_id !== gameId) {
+            return review;
+          }
+
+          return {
+            ...review,
+            ...savedReview,
+            score: nextScore,
+            text: trimmedText || null,
+          };
+        }),
+      );
+      cancelEditingReview();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update review");
+    } finally {
+      setBusyReviewGameId(null);
+    }
+  };
+
+  const handleReviewDelete = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setDeletingReviewGameId(gameId);
+
+    const previous = reviews;
+    setReviews((current) => current.filter((review) => review.game_id !== gameId));
+
+    try {
+      await deleteReview(user.id, gameId);
+      if (editingReviewGameId === gameId) {
+        cancelEditingReview();
+      }
+    } catch (err) {
+      setReviews(previous);
+      setError(err instanceof Error ? err.message : "Failed to delete review");
+    } finally {
+      setDeletingReviewGameId(null);
+    }
+  };
+
+  const handleBacklogStatusChange = async (gameId: number, nextStatus: BacklogStatus) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyBacklogGameId(gameId);
+
+    const previous = backlogPreview;
+    setBacklogPreview((current) =>
+      current.map((game) =>
+        game.id === gameId
+          ? {
+              ...game,
+              status: nextStatus,
+              progress: statusToProgress(nextStatus),
+            }
+          : game,
+      ),
+    );
+
+    try {
+      await updatePlaylistStatusByGame(user.id, gameId, toApiBacklogStatus(nextStatus));
+    } catch (err) {
+      setBacklogPreview(previous);
+      setError(err instanceof Error ? err.message : "Failed to update backlog item");
+    } finally {
+      setBusyBacklogGameId(null);
+    }
+  };
+
+  const handleBacklogRemove = async (gameId: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyBacklogGameId(gameId);
+
+    const previous = backlogPreview;
+    setBacklogPreview((current) => current.filter((game) => game.id !== gameId));
+
+    try {
+      await removeFromPlaylist(user.id, gameId);
+    } catch (err) {
+      setBacklogPreview(previous);
+      setError(err instanceof Error ? err.message : "Failed to remove backlog item");
+    } finally {
+      setBusyBacklogGameId(null);
+    }
+  };
 
   if (!isAuthorized) {
     return null;
@@ -297,13 +529,23 @@ export default function AccountPage() {
                 <section>
                   <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-4">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Favorite Games</h3>
-                    <span className="text-xs text-muted-foreground">From your backend favorites</span>
+                    <span className="text-xs text-muted-foreground">Remove favorites from here</span>
                   </div>
                   {favorites.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {favorites.slice(0, 8).map((game) => (
                         <div key={game.id} className="relative aspect-[3/4] rounded-md overflow-hidden group border border-abyss-700 shadow-md bg-abyss-800/50">
-                          <img src={game.cover_image_url ?? FALLBACK_COVER} alt={game.title} className="w-full h-full object-cover opacity-70" />
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            className="absolute right-2 top-2 z-20 h-8 w-8 border border-abyss-700 bg-abyss-950/90 text-azure-50 hover:bg-abyss-900"
+                            onClick={() => handleFavoriteRemove(game.id)}
+                            disabled={busyFavoriteId === game.id}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <img src={changeImageSize(game.cover_image_url, "cover_big")} alt={game.title} className="w-full h-full object-cover opacity-70" />
                           <div className="absolute inset-0 bg-black/35 flex items-end p-2">
                             <p className="text-azure-50 font-medium text-xs sm:text-sm line-clamp-2">{game.title}</p>
                           </div>
@@ -324,8 +566,15 @@ export default function AccountPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {recentActivity.map((activity) => (
                         <div key={activity.id} className="space-y-3 group">
-                          <div className="relative aspect-[3/4] rounded-md overflow-hidden border border-abyss-700 shadow-md bg-abyss-800/50 p-4 flex items-center justify-center">
-                            <p className="text-azure-50 font-medium text-center leading-snug">{activity.game}</p>
+                          <div className="relative aspect-[3/4] rounded-md overflow-hidden border border-abyss-700 shadow-md bg-abyss-800/50">
+                            <img
+                              src={changeImageSize(activity.coverImageUrl, "cover_big")}
+                              alt={activity.game}
+                              className="w-full h-full object-cover opacity-75"
+                            />
+                            <div className="absolute inset-0 bg-black/35 flex items-end p-2">
+                              <p className="text-azure-50 font-medium text-xs sm:text-sm line-clamp-2">{activity.game}</p>
+                            </div>
                           </div>
                           <div className="flex flex-col items-center gap-1.5">
                             <Badge className="bg-abyss-900/80 border border-abyss-700 flex gap-1 items-center text-abyss-50 text-xs">
@@ -381,9 +630,13 @@ export default function AccountPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
                 {reviewCards.map((review) => (
                   <div key={review.id} className="flex flex-col bg-abyss-900 border border-abyss-800 rounded-lg overflow-hidden hover:border-azure-500/50 hover:shadow-[0_0_15px_rgba(26,133,255,0.1)] transition-all duration-300">
-                    <div className="w-full h-24 bg-abyss-950 border-b border-abyss-800 relative flex items-center justify-center">
-                      <div className="absolute inset-0 bg-gradient-to-t from-abyss-900 via-transparent to-transparent z-10"></div>
-                      <span className="text-[10px] text-abyss-700 font-bold tracking-widest uppercase z-0 opacity-40">{review.game} Art</span>
+                    <div className="w-full h-24 bg-abyss-950 border-b border-abyss-800 relative overflow-hidden">
+                      <img
+                        src={changeImageSize(review.coverImageUrl, "screenshot_med")}
+                        alt={review.game}
+                        className="w-full h-full object-cover opacity-55"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-abyss-900 via-black/20 to-transparent z-10"></div>
                     </div>
 
                     <div className="p-5 flex flex-col flex-1">
@@ -392,11 +645,94 @@ export default function AccountPage() {
                           <h4 className="font-bold text-lg text-azure-50 leading-tight truncate">{review.game}</h4>
                           <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">{review.date}</p>
                         </div>
-                        <Badge className="bg-abyss-950 border border-abyss-700 flex gap-1 items-center text-abyss-50 shrink-0 shadow-sm">
-                          <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {review.rating}/10
-                        </Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge className="bg-abyss-950 border border-abyss-700 flex gap-1 items-center text-abyss-50 shadow-sm">
+                            <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {review.rating}/10
+                          </Badge>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 border-abyss-700 bg-abyss-950/70 hover:bg-abyss-900"
+                            onClick={() => {
+                              const sourceReview = reviews.find((item) => item.game_id === review.gameId);
+                              if (sourceReview) {
+                                startEditingReview(sourceReview);
+                              }
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 border-abyss-700 bg-abyss-950/70 hover:bg-abyss-900"
+                            onClick={() => handleReviewDelete(review.gameId)}
+                            disabled={deletingReviewGameId === review.gameId || busyReviewGameId === review.gameId}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground leading-relaxed flex-1 mt-1">{review.text}</p>
+
+                      {editingReviewGameId === review.gameId ? (
+                        <div className="mt-1 flex flex-1 flex-col gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Rating</label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              step={1}
+                              value={draftReviewScore}
+                              onChange={(event) => setDraftReviewScore(event.target.value)}
+                              className="border-abyss-700 bg-abyss-950/70"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Review</label>
+                            <textarea
+                              value={draftReviewText}
+                              onChange={(event) => setDraftReviewText(event.target.value)}
+                              rows={5}
+                              className="min-h-28 w-full rounded-md border border-abyss-700 bg-abyss-950/70 px-3 py-2 text-sm text-foreground outline-none transition focus:border-azure-500"
+                            />
+                          </div>
+
+                          <div className="mt-auto flex items-center gap-2">
+                            <Button
+                              type="button"
+                              className="gap-2 bg-azure-600 hover:bg-azure-500 text-white"
+                              onClick={() => handleReviewSave(review.gameId)}
+                              disabled={busyReviewGameId === review.gameId}
+                            >
+                              <Save className="h-4 w-4" /> Save
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
+                              onClick={() => handleReviewDelete(review.gameId)}
+                              disabled={deletingReviewGameId === review.gameId || busyReviewGameId === review.gameId}
+                            >
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
+                              onClick={cancelEditingReview}
+                              disabled={busyReviewGameId === review.gameId || deletingReviewGameId === review.gameId}
+                            >
+                              <X className="h-4 w-4" /> Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground leading-relaxed flex-1 mt-1">{review.text}</p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -409,21 +745,25 @@ export default function AccountPage() {
           <TabsContent value="backlog" className="mt-8 outline-none animate-in fade-in-50 duration-500">
             <div className="w-full">
               <div className="flex justify-between items-baseline mb-6 border-b border-border/40 pb-2">
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Recently Added to Backlog</h3>
-                <span className="text-xs text-azure-500 font-medium">Synced from playlist API</span>
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Backlog</h3>
+                <span className="text-xs text-azure-500 font-medium">Update status or remove games here</span>
               </div>
               {backlogPreview.length > 0 ? (
                 <div className="flex flex-col gap-4">
                   {backlogPreview.map((game) => (
                     <div key={game.id} className="flex flex-row items-center p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-800 rounded-lg">
-                      <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800 flex items-center justify-center">
-                        <span className="text-[10px] text-center text-abyss-500 px-1 font-medium">{game.title}</span>
+                      <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800">
+                        <img
+                          src={changeImageSize(game.coverImageUrl, "cover_big")}
+                          alt={game.title}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div className="flex flex-col flex-1 min-w-0 justify-center">
                         <h4 className="font-bold text-lg truncate">{game.title}</h4>
                         <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
                           <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
-                          <span className="font-medium text-foreground/80 text-xs sm:text-sm">In Backlog</span>
+                          <span className="font-medium text-foreground/80 text-xs sm:text-sm">{formatBacklogStatus(game.status)}</span>
                         </div>
                       </div>
                       <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
@@ -434,6 +774,32 @@ export default function AccountPage() {
                         <div className="h-2 w-full bg-abyss-950 rounded-full overflow-hidden border border-abyss-800">
                           <div className="h-full bg-azure-500" style={{ width: `${game.progress}%` }} />
                         </div>
+                      </div>
+                      <div className="flex min-w-[168px] flex-col gap-2">
+                        <Select
+                          value={game.status}
+                          onValueChange={(value) => handleBacklogStatusChange(game.id, value as BacklogStatus)}
+                          disabled={busyBacklogGameId === game.id}
+                        >
+                          <SelectTrigger className="border-abyss-700 bg-abyss-950/80">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="backlog">Backlog</SelectItem>
+                            <SelectItem value="playing">Playing</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="abandoned">Abandoned</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
+                          onClick={() => handleBacklogRemove(game.id)}
+                          disabled={busyBacklogGameId === game.id}
+                        >
+                          <Trash2 className="h-4 w-4" /> Remove
+                        </Button>
                       </div>
                     </div>
                   ))}

@@ -526,14 +526,14 @@ export default function GamesPage() {
           <section className="space-y-6">
             <h3 className="text-2xl font-bold tracking-tight">Trending Now</h3>
             <div className="space-y-4">
-              {mostPopularGames.map((game, index) => (
+              {mostPopularGames.map((game) => (
                 <Link
                   key={game.id}
                   to={`/games/${game.id}`}
-                  className="relative block h-40 rounded-lg overflow-hidden group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
+                  className="relative block h-36 rounded-lg overflow-hidden group cursor-pointer transition-all hover:ring-2 hover:ring-primary"
                 >
                   <img
-                    src={changeImageSize(game.image, "screenshot_med")}
+                    src={changeImageSize(game.image, "screenshot_big")}
                     alt={game.title}
                     className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                   />
@@ -564,19 +564,23 @@ export default function GamesPage() {
             <h3 className="text-2xl font-bold tracking-tight">Latest News</h3>
             <div className="space-y-6">
               {newsItems.map((news, i) => (
-                <Link key={i} to={`/games/${news.game.id}`} className="block group cursor-pointer space-y-2">
-                  <div className="relative h-32 w-full rounded-md mb-2 overflow-hidden">
+                <Link
+                  key={i}
+                  to={`/games/${news.game.id}`}
+                  className="block rounded-lg border border-abyss-800/80 bg-abyss-900/30 p-3 group cursor-pointer space-y-3 transition-colors hover:border-azure-500/40"
+                >
+                  <div className="relative h-36 w-full rounded-md overflow-hidden">
                     <img
-                      src={changeImageSize(news.game.image, "screenshot_med")}
+                      src={changeImageSize(news.game.image, "screenshot_big")}
                       alt={news.game.title}
                       className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
                   </div>
-                  <p className="font-bold group-hover:text-primary transition-colors line-clamp-2 text-sm uppercase text-azure-500">
+                  <p className="font-bold group-hover:text-primary transition-colors line-clamp-1 text-sm uppercase text-azure-500">
                     Breaking News
                   </p>
-                  <h4 className="text-md font-semibold leading-snug">
+                  <h4 className="text-md font-semibold leading-snug line-clamp-2">
                     {news.title}
                   </h4>
                   <p className="text-xs text-muted-foreground line-clamp-2">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +32,8 @@ import {
   LayoutGrid,
   List as ListIcon,
   Trash2,
-  Edit2,
   ArrowRightCircle,
+  CheckCircle2,
 } from "lucide-react";
 import {
   getPlaylistEntries,
@@ -50,7 +51,8 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "My Backlog | Respawn67" }];
 }
 
-type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
+type BacklogStatus = "want_to_play" | "playing" | "completed";
+type BacklogTab = "all" | BacklogStatus;
 
 type BacklogGame = {
   id: number;
@@ -70,26 +72,23 @@ const FALLBACK_COVER =
 function normalizeStatus(status: string): BacklogStatus {
   if (status === "playing") return "playing";
   if (status === "completed") return "completed";
-  if (status === "abandoned") return "abandoned";
-  return "backlog";
+  if (status === "backlog") return "want_to_play";
+  return "want_to_play";
 }
 
 function toApiStatus(status: BacklogStatus): string {
-  if (status === "backlog") return "want_to_play";
   return status;
 }
 
 function inferProgress(status: BacklogStatus): number {
   if (status === "completed") return 100;
   if (status === "playing") return 45;
-  if (status === "abandoned") return 20;
   return 0;
 }
 
 function inferPriority(status: BacklogStatus): BacklogGame["priority"] {
   if (status === "completed") return "Done";
   if (status === "playing") return "High";
-  if (status === "abandoned") return "Low";
   return "Medium";
 }
 
@@ -100,7 +99,7 @@ function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): BacklogGam
   }
 
   return games.map((game) => {
-    const status = statusByGameId.get(game.id) ?? "backlog";
+    const status = statusByGameId.get(game.id) ?? "want_to_play";
     const hoursTotal = status === "completed" ? 40 : 30;
     const progress = inferProgress(status);
 
@@ -118,13 +117,20 @@ function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): BacklogGam
   });
 }
 
+function formatStatusLabel(status: BacklogStatus): string {
+  if (status === "want_to_play") return "Up Next";
+  if (status === "playing") return "Playing";
+  return "Completed";
+}
+
 export default function BacklogPage() {
+  const navigate = useNavigate();
   const isAuthorized = useRequireAuth();
   const [games, setGames] = useState<BacklogGame[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMutating, setIsMutating] = useState(false);
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState<BacklogTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("title");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -201,6 +207,30 @@ export default function BacklogPage() {
   const completionRate = Math.round(
     (totalGamesCompleted / Math.max(games.length, 1)) * 100,
   );
+
+  const handlePickForMe = () => {
+    const pickPool = games.filter((game) => game.status !== "completed");
+    const source = pickPool.length > 0 ? pickPool : games;
+    if (source.length === 0) {
+      setError("No games available to pick right now.");
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * source.length);
+    const selected = source[randomIndex];
+    navigate(`/games/${selected.id}`);
+  };
+
+  const handleTabChange = (value: string) => {
+    if (
+      value === "all" ||
+      value === "want_to_play" ||
+      value === "playing" ||
+      value === "completed"
+    ) {
+      setActiveTab(value);
+    }
+  };
 
   const handleStatusUpdate = async (gameId: number, nextStatus: BacklogStatus) => {
     const user = getStoredUser();
@@ -286,14 +316,21 @@ export default function BacklogPage() {
             </p>
           </div>
           <div className="flex gap-2 w-full md:w-auto">
-            <Button variant="outline" className="gap-2 flex-1 md:flex-none">
+            <Button
+              variant="outline"
+              className="gap-2 flex-1 md:flex-none"
+              onClick={handlePickForMe}
+              disabled={isMutating || isLoading}
+            >
               <Dice5 className="w-4 h-4" /> Pick for Me
             </Button>
             <Button
-              disabled
+              asChild
               className="gap-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white flex-1 md:flex-none"
             >
-              <PlayCircle className="w-4 h-4" /> Add Game
+              <Link to="/games">
+                <PlayCircle className="w-4 h-4" /> Add Game
+              </Link>
             </Button>
           </div>
         </div>
@@ -366,7 +403,7 @@ export default function BacklogPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={handleTabChange}
         className="space-y-6"
       >
         <TabsList className="bg-muted/50 p-1 flex-wrap h-auto">
@@ -380,9 +417,8 @@ export default function BacklogPage() {
               {games.filter((g) => g.status === "playing").length}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="backlog">Up Next</TabsTrigger>
+          <TabsTrigger value="want_to_play">Up Next</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="abandoned">Shelved</TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -403,8 +439,10 @@ export default function BacklogPage() {
                   game={game}
                   view={viewMode}
                   isMutating={isMutating}
+                  gameId={game.id}
                   onMarkPlaying={() => handleStatusUpdate(game.id, "playing")}
-                  onMoveToBacklog={() => handleStatusUpdate(game.id, "backlog")}
+                  onMoveToBacklog={() => handleStatusUpdate(game.id, "want_to_play")}
+                  onMarkCompleted={() => handleStatusUpdate(game.id, "completed")}
                   onRemove={() => handleRemove(game.id)}
                 />
               ))}
@@ -441,16 +479,20 @@ function StatBox({ label, value }: { label: string; value: string }) {
 function BacklogItem({
   game,
   view,
+  gameId,
   isMutating,
   onMarkPlaying,
   onMoveToBacklog,
+  onMarkCompleted,
   onRemove,
 }: {
   game: BacklogGame;
   view: "grid" | "list";
+  gameId: number;
   isMutating: boolean;
   onMarkPlaying: () => void;
   onMoveToBacklog: () => void;
+  onMarkCompleted: () => void;
   onRemove: () => void;
 }) {
   if (view === "list") {
@@ -472,8 +514,8 @@ function BacklogItem({
             <Badge className="text-[10px] py-0 bg-abyss-900/80 text-abyss-50 border border-abyss-700">
               {game.platform}
             </Badge>
-            <span className="capitalize font-medium text-foreground/80">
-              {game.status}
+            <span className="font-medium text-foreground/80">
+              {formatStatusLabel(game.status)}
             </span>
             <span className="hidden sm:inline">•</span>
             <span className="hidden sm:inline">
@@ -494,9 +536,11 @@ function BacklogItem({
 
         <div className="shrink-0">
           <CardActions
+            gameId={gameId}
             isMutating={isMutating}
             onMarkPlaying={onMarkPlaying}
             onMoveToBacklog={onMoveToBacklog}
+            onMarkCompleted={onMarkCompleted}
             onRemove={onRemove}
           />
         </div>
@@ -527,7 +571,7 @@ function BacklogItem({
               Done
             </Badge>
           )}
-          {game.priority === "High" && game.status === "backlog" && (
+          {game.priority === "High" && game.status === "want_to_play" && (
             <Badge variant="destructive">High Priority</Badge>
           )}
         </div>
@@ -573,12 +617,14 @@ function BacklogItem({
 
       <CardFooter className="p-4 pt-0 flex justify-between items-center border-t border-abyss-700 bg-abyss-900/30">
         <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-          {game.status}
+          {formatStatusLabel(game.status)}
         </div>
         <CardActions
+          gameId={gameId}
           isMutating={isMutating}
           onMarkPlaying={onMarkPlaying}
           onMoveToBacklog={onMoveToBacklog}
+          onMarkCompleted={onMarkCompleted}
           onRemove={onRemove}
         />
       </CardFooter>
@@ -587,14 +633,18 @@ function BacklogItem({
 }
 
 function CardActions({
+  gameId,
   isMutating,
   onMarkPlaying,
   onMoveToBacklog,
+  onMarkCompleted,
   onRemove,
 }: {
+  gameId: number;
   isMutating: boolean;
   onMarkPlaying: () => void;
   onMoveToBacklog: () => void;
+  onMarkCompleted: () => void;
   onRemove: () => void;
 }) {
   return (
@@ -611,9 +661,14 @@ function CardActions({
         <DropdownMenuItem className="gap-2" onSelect={onMoveToBacklog}>
           <ArrowRightCircle className="w-4 h-4" /> Move to Up Next
         </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2" onSelect={onMarkCompleted}>
+          <CheckCircle2 className="w-4 h-4" /> Mark as Completed
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2" disabled>
-          <Edit2 className="w-4 h-4" /> Edit Details
+        <DropdownMenuItem asChild className="gap-2">
+          <Link to={`/games/${gameId}`}>
+            <ArrowRightCircle className="w-4 h-4" /> Open Game Details
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
