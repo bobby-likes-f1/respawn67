@@ -68,31 +68,31 @@ const MOCK_LISTS = [
 const FALLBACK_COVER =
   "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
 
-function statusToProgress(status: string) {
+export function statusToProgress(status: string) {
   if (status === "completed") return 100;
   if (status === "playing") return 45;
   if (status === "abandoned") return 20;
   return 0;
 }
 
-function normalizeBacklogStatus(status: string): BacklogStatus {
+export function normalizeBacklogStatus(status: string): BacklogStatus {
   if (status === "playing") return "playing";
   if (status === "completed") return "completed";
   if (status === "abandoned") return "abandoned";
   return "backlog";
 }
 
-function toApiBacklogStatus(status: BacklogStatus) {
+export function toApiBacklogStatus(status: BacklogStatus) {
   if (status === "backlog") return "want_to_play";
   return status;
 }
 
-function formatBacklogStatus(status: BacklogStatus) {
+export function formatBacklogStatus(status: BacklogStatus) {
   if (status === "backlog") return "Backlog";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-function formatDate(value?: string) {
+export function formatDate(value?: string) {
   if (!value) {
     return "Recently";
   }
@@ -105,16 +105,16 @@ function formatDate(value?: string) {
   return parsed.toLocaleDateString();
 }
 
-function getReviewCreatedAt(review: ApiReview) {
+export function getReviewCreatedAt(review: ApiReview) {
   return review.created_at ?? review.CreatedAt;
 }
 
-function changeImageSize(url: string | null | undefined, size: string) {
+export function changeImageSize(url: string | null | undefined, size: string) {
   if (!url) return FALLBACK_COVER;
   return url.replace(/t_[a-z0-9]+/, `t_${size}`);
 }
 
-function normalizeReviewScore(score: number) {
+export function normalizeReviewScore(score: number) {
   return Math.min(10, Math.max(1, Math.round(score)));
 }
 

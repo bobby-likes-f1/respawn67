@@ -256,12 +256,12 @@ const CATALOGUE_GAMES: CatalogueGame[] = [
   },
 ];
 
-function changeImageSize(url: string | null | undefined, size: string): string {
+export function changeImageSize(url: string | null | undefined, size: string): string {
   if (!url) return "https://via.placeholder.com/264x374?text=No+Image";
   return url.replace(/t_[a-z0-9]+/, `t_${size}`);
 }
 
-function toCatalogueGame(game: ApiGame): CatalogueGame {
+export function toCatalogueGame(game: ApiGame): CatalogueGame {
   const year = game.release_year ?? 2020 + (game.id % 6);
   const decade = `${Math.floor(year / 10) * 10}s`;
   const primaryGenre = game.genre?.split(",")[0]?.trim() || "Action";

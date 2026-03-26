@@ -28,7 +28,7 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-function changeImageSize(url: string | null | undefined, size: string): string {
+export function changeImageSize(url: string | null | undefined, size: string): string {
   if (!url) return "https://via.placeholder.com/264x374?text=No+Image";
   return url.replace(/t_[a-z0-9_]+/, `t_${size}`);
 }
