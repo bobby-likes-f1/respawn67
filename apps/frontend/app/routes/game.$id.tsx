@@ -30,7 +30,7 @@ import { getStoredUser, getToken } from "@/lib/auth";
 const FALLBACK_COVER =
   "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
 
-function changeImageSize(url: string | null | undefined, size: string): string {
+export function changeImageSize(url: string | null | undefined, size: string): string {
   if (!url) return "https://via.placeholder.com/264x374?text=No+Image";
   return url.replace(/t_[a-z0-9]+/, `t_${size}`);
 }
@@ -53,7 +53,7 @@ const MOCK_GAMES_DB: Record<string, any> = {
   },
 };
 
-function toUiGameData(game: ApiGame | null, fallbackId: string) {
+export function toUiGameData(game: ApiGame | null, fallbackId: string) {
   if (!game) {
     return MOCK_GAMES_DB[fallbackId] || MOCK_GAMES_DB["1"];
   }

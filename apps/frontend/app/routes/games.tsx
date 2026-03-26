@@ -25,14 +25,14 @@ export function meta({}: Route.MetaArgs) {
 }
 
 // helper to change igdb image size
-function changeImageSize(url: string | null | undefined, size: string): string {
+export function changeImageSize(url: string | null | undefined, size: string): string {
   if (!url) return "https://via.placeholder.com/264x374?text=No+Image";
   // replace t_{oldSize} with t_{newSize}
   return url.replace(/t_[a-z0-9]+/, `t_${size}`);
 }
 
 // turn ApiGame into ui data with defaults
-function transformGameData(game: ApiGame) {
+export function transformGameData(game: ApiGame) {
   // keep these deterministic so ssr and client match
   const derivedRating = Number((8 + (game.id % 20) / 10).toFixed(1));
   const derivedTimeToBeat = 12 + (game.id % 24);

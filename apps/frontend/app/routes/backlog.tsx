@@ -71,30 +71,30 @@ type BacklogGame = {
 const FALLBACK_COVER =
   "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
 
-function normalizeStatus(status: string): BacklogStatus {
+export function normalizeStatus(status: string): BacklogStatus {
   if (status === "playing") return "playing";
   if (status === "completed") return "completed";
   if (status === "backlog") return "want_to_play";
   return "want_to_play";
 }
 
-function toApiStatus(status: BacklogStatus): string {
+export function toApiStatus(status: BacklogStatus): string {
   return status;
 }
 
-function inferProgress(status: BacklogStatus): number {
+export function inferProgress(status: BacklogStatus): number {
   if (status === "completed") return 100;
   if (status === "playing") return 45;
   return 0;
 }
 
-function inferPriority(status: BacklogStatus): BacklogGame["priority"] {
+export function inferPriority(status: BacklogStatus): BacklogGame["priority"] {
   if (status === "completed") return "Done";
   if (status === "playing") return "High";
   return "Medium";
 }
 
-function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): BacklogGame[] {
+export function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): BacklogGame[] {
   const statusByGameId = new Map<number, BacklogStatus>();
   for (const entry of entries) {
     statusByGameId.set(entry.game_id, normalizeStatus(entry.status));
@@ -119,7 +119,7 @@ function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): BacklogGam
   });
 }
 
-function formatStatusLabel(status: BacklogStatus): string {
+export function formatStatusLabel(status: BacklogStatus): string {
   if (status === "want_to_play") return "Up Next";
   if (status === "playing") return "Playing";
   return "Completed";
