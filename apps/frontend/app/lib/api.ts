@@ -112,6 +112,35 @@ export function getAllGames() {
   return apiRequest<ApiGame[]>("/games/").then((result) => result || []);
 }
 
+export type ApiUser = {
+  id: number;
+  username: string;
+  email: string;
+};
+
+export function getUserById(userId: number | string) {
+  return apiRequest<ApiUser>(`/users/${userId}`);
+}
+
+export function getAllUsers() {
+  return apiRequest<ApiUser[]>("/users/").then((result) => result || []);
+}
+
+export function getPublicUserLists(userId: number) {
+  return apiRequest<ApiGameList[]>(`/users/${userId}/lists/`).then(
+    (result) => result || [],
+  );
+}
+
+export function getPublicReviews(filters: { userId?: number; gameId?: number }) {
+  const params = new URLSearchParams();
+  if (filters.userId) params.set("user_id", String(filters.userId));
+  if (filters.gameId) params.set("game_id", String(filters.gameId));
+  const suffix = params.toString();
+  const path = suffix ? `/reviews/?${suffix}` : "/reviews/";
+  return apiRequest<ApiReview[]>(path).then((result) => result || []);
+}
+
 export function getGameById(gameId: number | string) {
   return apiRequest<ApiGame>(`/games/${gameId}`).catch((err) => {
     console.error(`[API] Failed to fetch game ${gameId}:`, err);
@@ -226,4 +255,121 @@ export function deleteReview(userId: number, gameId: number) {
     method: "DELETE",
     auth: true,
   });
+}
+
+// ── Game Lists ──
+
+export type ApiGameList = {
+  id: number;
+  user_id: number;
+  name: string;
+  description?: string | null;
+  // Enriched client-side fields (not from API)
+  username?: string;
+  like_count?: number;
+  liked_by_me?: boolean;
+  game_count?: number;
+};
+
+export type ApiGameListItem = {
+  id: number;
+  list_id: number;
+  game_id: number;
+};
+
+export function getAllLists() {
+  return apiRequest<ApiGameList[]>("/lists/").then((result) => result || []);
+}
+
+export function getListById(listId: number | string) {
+  return apiRequest<ApiGameList>(`/lists/${listId}`);
+}
+
+export function getListItems(listId: number | string) {
+  return apiRequest<ApiGameListItem[]>(`/lists/${listId}/items`).then(
+    (result) => result || [],
+  );
+}
+
+export function getListGames(listId: number | string) {
+  return apiRequest<ApiGame[]>(`/lists/${listId}/games`).then(
+    (result) => result || [],
+  );
+}
+
+export function getUserLists(userId: number) {
+  return apiRequest<ApiGameList[]>(`/users/${userId}/lists/`, { auth: true }).then(
+    (result) => result || [],
+  );
+}
+
+export function createList(
+  userId: number,
+  payload: { name: string; description?: string },
+) {
+  return apiRequest<ApiGameList>(`/users/${userId}/lists/`, {
+    method: "POST",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function updateList(
+  userId: number,
+  listId: number,
+  payload: { name: string; description?: string | null },
+) {
+  return apiRequest<ApiGameList>(`/users/${userId}/lists/${listId}`, {
+    method: "PUT",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function deleteList(userId: number, listId: number) {
+  return apiRequest<{ message: string }>(`/users/${userId}/lists/${listId}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+export function addGameToList(
+  userId: number,
+  listId: number,
+  gameId: number,
+) {
+  return apiRequest<ApiGameListItem>(
+    `/users/${userId}/lists/${listId}/items`,
+    {
+      method: "POST",
+      auth: true,
+      body: { game_id: gameId },
+    },
+  );
+}
+
+export function removeGameFromList(
+  userId: number,
+  listId: number,
+  gameId: number,
+) {
+  return apiRequest<{ message: string }>(
+    `/users/${userId}/lists/${listId}/games/${gameId}`,
+    {
+      method: "DELETE",
+      auth: true,
+    },
+  );
+}
+
+// ── List Likes (placeholder — backend not yet implemented) ──
+
+export async function likeList(_listId: number): Promise<void> {
+  // TODO: POST /lists/:listId/like once backend is ready
+  console.warn("[API] likeList is a placeholder — backend not implemented yet");
+}
+
+export async function unlikeList(_listId: number): Promise<void> {
+  // TODO: DELETE /lists/:listId/like once backend is ready
+  console.warn("[API] unlikeList is a placeholder — backend not implemented yet");
 }

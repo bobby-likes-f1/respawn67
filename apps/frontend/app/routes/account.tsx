@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,21 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Star,
   Settings,
   Link as LinkIcon,
@@ -21,6 +37,10 @@ import {
   Save,
   Trash2,
   X,
+  Plus,
+  MoreHorizontal,
+  Gamepad2,
+  ExternalLink,
 } from "lucide-react";
 import {
   getAllGames,
@@ -33,8 +53,14 @@ import {
   removeFromPlaylist,
   updatePlaylistStatusByGame,
   updateReview,
+  getUserLists,
+  getListGames,
+  createList,
+  updateList,
+  deleteList,
   type ApiGame,
   type ApiReview,
+  type ApiGameList,
 } from "@/lib/api";
 import { getInitials, getMemberSinceLabel, getStoredUser, type AuthUser } from "@/lib/auth";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -59,11 +85,10 @@ type BacklogPreviewItem = {
 
 type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
 
-const MOCK_LISTS = [
-  { id: 1, title: "Top 10 Souls-likes", gameCount: 10, likes: 24, updated: "1 week ago" },
-  { id: 2, title: "Co-op Weekend", gameCount: 4, likes: 5, updated: "1 month ago" },
-  { id: 3, title: "Pile of Shame", gameCount: 42, likes: 1, updated: "2 months ago" },
-];
+type UserListItem = ApiGameList & {
+  gameCount: number;
+  coverImages: string[];
+};
 
 const FALLBACK_COVER =
   "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
@@ -120,6 +145,7 @@ export function normalizeReviewScore(score: number) {
 
 export default function AccountPage() {
   const isAuthorized = useRequireAuth();
+  const navigate = useNavigate();
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
 
   const [favorites, setFavorites] = useState<ApiGame[]>([]);
@@ -137,6 +163,13 @@ export default function AccountPage() {
   const [busyReviewGameId, setBusyReviewGameId] = useState<number | null>(null);
   const [deletingReviewGameId, setDeletingReviewGameId] = useState<number | null>(null);
   const [busyBacklogGameId, setBusyBacklogGameId] = useState<number | null>(null);
+
+  const [userLists, setUserLists] = useState<UserListItem[]>([]);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
+  const [editingListItem, setEditingListItem] = useState<ApiGameList | null>(null);
+  const [listFormName, setListFormName] = useState("");
+  const [listFormDescription, setListFormDescription] = useState("");
+  const [isSavingList, setIsSavingList] = useState(false);
 
   useEffect(() => {
     setSessionUser(getStoredUser());
@@ -213,6 +246,27 @@ export default function AccountPage() {
         });
 
         setBacklogPreview(preview);
+
+        try {
+          const lists = await getUserLists(user.id);
+          const enriched: UserListItem[] = await Promise.all(
+            lists.map(async (list) => {
+              try {
+                const games = await getListGames(list.id);
+                return {
+                  ...list,
+                  gameCount: games.length,
+                  coverImages: games.slice(0, 4).map((g) =>
+                    changeImageSize(g.cover_image_url, "cover_big"),
+                  ),
+                };
+              } catch {
+                return { ...list, gameCount: 0, coverImages: [] };
+              }
+            }),
+          );
+          if (active) setUserLists(enriched);
+        } catch {}
       } catch (err) {
         if (!active) {
           return;
@@ -828,27 +882,215 @@ export default function AccountPage() {
           </TabsContent>
 
           <TabsContent value="lists" className="mt-8 outline-none animate-in fade-in-50 duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {MOCK_LISTS.map((list) => (
-                <div key={list.id} className="relative group cursor-pointer mt-2">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-azure-600 to-azure-400 rounded-lg blur opacity-10 group-hover:opacity-30 transition duration-500"></div>
-                  <div className="relative bg-abyss-900 border border-abyss-800 rounded-lg p-5 flex flex-col gap-5 hover:bg-abyss-800/80 transition-all duration-300 ease-out shadow-lg">
-                    <div className="flex justify-between items-start">
-                      <div className="min-w-0 pr-4">
-                        <h4 className="font-bold text-lg text-azure-50 mb-1.5 truncate group-hover:text-azure-300 transition-colors duration-300">{list.title}</h4>
-                        <div className="flex items-center text-xs text-muted-foreground gap-3">
-                          <span className="flex items-center gap-1 font-medium"><LayoutGrid className="w-3 h-3 text-azure-500" /> {list.gameCount} Games</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-azure-500" /> {list.updated}</span>
+            <div className="flex justify-between items-baseline mb-6 border-b border-border/40 pb-2">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">My Lists</h3>
+              <Button
+                size="sm"
+                className="gap-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white"
+                onClick={() => {
+                  setEditingListItem(null);
+                  setListFormName("");
+                  setListFormDescription("");
+                  setListDialogOpen(true);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" /> New List
+              </Button>
+            </div>
+            {userLists.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {userLists.map((list) => (
+                  <Link
+                    key={list.id}
+                    to={`/lists/${list.id}`}
+                    className="group relative flex flex-col bg-abyss-900 border border-abyss-700 hover:border-azure-500/50 hover:shadow-[0_0_20px_rgba(26,133,255,0.12)] rounded-xl overflow-hidden transition-all duration-300"
+                  >
+                    <div className="relative h-32 bg-abyss-950 overflow-hidden shrink-0">
+                      {list.coverImages.length > 0 ? (
+                        <div
+                          className={`grid h-full w-full ${
+                            list.coverImages.length === 1
+                              ? "grid-cols-1"
+                              : list.coverImages.length === 2
+                                ? "grid-cols-2"
+                                : list.coverImages.length === 3
+                                  ? "grid-cols-3"
+                                  : "grid-cols-2 grid-rows-2"
+                          }`}
+                        >
+                          {list.coverImages.slice(0, 4).map((src, i) => (
+                            <img
+                              key={i}
+                              src={src}
+                              alt=""
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          ))}
                         </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <LayoutGrid className="w-8 h-8 text-abyss-700" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-abyss-900 via-transparent to-transparent opacity-80" />
+                      <div className="absolute top-2 right-2">
+                        <Badge className="bg-abyss-900/80 border border-abyss-700 flex gap-1 items-center text-abyss-50 text-xs shadow-sm">
+                          <Gamepad2 className="w-3 h-3 text-azure-400" />
+                          {list.gameCount}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-[10px] py-0 h-5 bg-abyss-950 border-abyss-700 text-muted-foreground shrink-0">
-                        ♥ {list.likes}
-                      </Badge>
                     </div>
+
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex justify-between items-start flex-1 w-full min-w-0">
+                        <div className="min-w-0 pr-4 flex-1">
+                          <h4 className="font-bold text-lg text-azure-50 mb-1 truncate group-hover:text-azure-300 transition-colors duration-300">
+                            {list.name}
+                          </h4>
+                          {list.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                              {list.description}
+                            </p>
+                          )}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              className="p-1.5 -mr-1.5 -mt-1 rounded-md hover:bg-abyss-800 transition-colors text-muted-foreground shrink-0"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40 border-abyss-700 bg-abyss-900">
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer focus:bg-abyss-800"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                navigate(`/lists/${list.id}`);
+                              }}
+                            >
+                              <ExternalLink className="w-4 h-4 text-azure-400" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer focus:bg-abyss-800"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setEditingListItem(list);
+                                setListFormName(list.name);
+                                setListFormDescription(list.description || "");
+                                setListDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-abyss-800" />
+                            <DropdownMenuItem
+                              className="gap-2 text-destructive cursor-pointer focus:bg-destructive/10 focus:text-destructive"
+                              onSelect={async (e) => {
+                                e.preventDefault();
+                                if (!sessionUser) return;
+                                try {
+                                  await deleteList(sessionUser.id, list.id);
+                                  setUserLists((prev) =>
+                                    prev.filter((l) => l.id !== list.id),
+                                  );
+                                } catch (err) {
+                                  setError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to delete list",
+                                  );
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-muted/20 rounded-xl border border-dashed">
+                <LayoutGrid className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No lists yet. Create one to curate your favorite games!</p>
+              </div>
+            )}
+
+            <Dialog open={listDialogOpen} onOpenChange={setListDialogOpen}>
+              <DialogContent className="bg-abyss-900 border-abyss-700 sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>{editingListItem ? "Edit List" : "Create New List"}</DialogTitle>
+                  <DialogDescription>
+                    {editingListItem ? "Update your list details." : "Give your list a name and optional description."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground font-medium">Name</label>
+                    <Input
+                      value={listFormName}
+                      onChange={(e) => setListFormName(e.target.value)}
+                      placeholder="e.g. Top 10 RPGs"
+                      className="border-abyss-700 bg-abyss-950/70"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground font-medium">Description</label>
+                    <textarea
+                      value={listFormDescription}
+                      onChange={(e) => setListFormDescription(e.target.value)}
+                      placeholder="What's this list about?"
+                      rows={3}
+                      className="w-full rounded-md border border-abyss-700 bg-abyss-950/70 px-3 py-2 text-sm text-foreground outline-none transition focus:border-azure-500 resize-none"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setListDialogOpen(false)} className="border-abyss-700">
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!sessionUser || !listFormName.trim()) return;
+                      setIsSavingList(true);
+                      setError(null);
+                      try {
+                        if (editingListItem) {
+                          const updated = await updateList(sessionUser.id, editingListItem.id, {
+                            name: listFormName.trim(),
+                            description: listFormDescription.trim() || undefined,
+                          });
+                          setUserLists((prev) => prev.map((l) => l.id === updated.id ? { ...updated, gameCount: l.gameCount, coverImages: l.coverImages } : l));
+                        } else {
+                          const created = await createList(sessionUser.id, {
+                            name: listFormName.trim(),
+                            description: listFormDescription.trim() || undefined,
+                          });
+                          setUserLists((prev) => [{ ...created, gameCount: 0, coverImages: [] }, ...prev]);
+                        }
+                        setListDialogOpen(false);
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Failed to save list");
+                      } finally {
+                        setIsSavingList(false);
+                      }
+                    }}
+                    disabled={!listFormName.trim() || isSavingList}
+                    className="bg-azure-600 hover:bg-azure-500 text-white"
+                  >
+                    {isSavingList ? "Saving..." : editingListItem ? "Update" : "Create"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </main>
