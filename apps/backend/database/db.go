@@ -28,7 +28,7 @@ func Initialize() {
 func doMigrate() {
 
 	var err error
-	err = DB.AutoMigrate(&models.Game{}, &models.User{})
+	err = DB.AutoMigrate(&models.Game{}, &models.User{}, &models.Playlist{}, &models.Favorite{}, &models.Review{}, &models.GameList{}, &models.GameListItem{})
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

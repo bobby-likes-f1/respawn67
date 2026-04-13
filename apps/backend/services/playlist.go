@@ -1,0 +1,49 @@
+package services
+
+import (
+	"errors"
+	"respawn67/models"
+	"respawn67/repositories"
+)
+
+type PlaylistService struct {
+	repo *repositories.PlaylistRepository
+}
+
+func NewPlaylistService() *PlaylistService {
+	return &PlaylistService{repo: repositories.NewPlaylistRepository()}
+}
+
+func (s *PlaylistService) GetByUserID(userID uint) ([]models.Playlist, error) {
+	return s.repo.GetByUserID(userID)
+}
+
+func (s *PlaylistService) GetGamesByUserID(userID uint) ([]models.Game, error) {
+	return s.repo.GetGamesByUserID(userID)
+}
+
+func (s *PlaylistService) AddGame(entry models.Playlist) (models.Playlist, error) {
+	// Check if game is already in user's playlist
+	_, err := s.repo.FindByUserAndGame(entry.UserID, entry.GameID)
+	if err == nil {
+		return models.Playlist{}, errors.New("game already in playlist")
+	}
+
+	return s.repo.Create(entry)
+}
+
+func (s *PlaylistService) UpdateStatus(id uint, status string) (models.Playlist, error) {
+	return s.repo.Update(id, status)
+}
+
+func (s *PlaylistService) UpdateStatusByUserAndGame(userID uint, gameID uint, status string) (models.Playlist, error) {
+	return s.repo.UpdateByUserAndGame(userID, gameID, status)
+}
+
+func (s *PlaylistService) RemoveGame(id uint) error {
+	return s.repo.Delete(id)
+}
+
+func (s *PlaylistService) RemoveByUserAndGame(userID uint, gameID uint) error {
+	return s.repo.DeleteByUserAndGame(userID, gameID)
+}
