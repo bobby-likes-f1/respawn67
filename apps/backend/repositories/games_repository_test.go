@@ -9,7 +9,7 @@ func TestGamesRepository_CreateGame(t *testing.T) {
 	db := setupTestDB()
 	repo := &GamesRepository{db: db}
 
-	game := models.Game{Title: "Elden Ring", Developer: strPtr("FromSoftware"), ReleaseYear: int16Ptr(2022)}
+	game := models.Game{Title: "Elden Ring", Developer: strPtr("FromSoftware"), ReleaseDate: strPtr("2022-02-25")}
 
 	created, err := repo.CreateGame(game)
 	if err != nil {
@@ -20,6 +20,35 @@ func TestGamesRepository_CreateGame(t *testing.T) {
 	}
 	if created.Title != "Elden Ring" {
 		t.Fatalf("expected title 'Elden Ring', got '%s'", created.Title)
+	}
+	if created.ReleaseDate == nil || *created.ReleaseDate != "2022-02-25" {
+		t.Fatalf("expected release_date '2022-02-25', got %v", created.ReleaseDate)
+	}
+}
+
+func TestGamesRepository_CreateGame_WithAllFields(t *testing.T) {
+	db := setupTestDB()
+	repo := &GamesRepository{db: db}
+
+	game := models.Game{
+		Title:         "Cyberpunk 2077",
+		Description:   strPtr("An open-world RPG set in Night City"),
+		Genre:         strPtr("Action RPG"),
+		Developer:     strPtr("CD Projekt Red"),
+		Publisher:     strPtr("CD Projekt"),
+		ReleaseDate:   strPtr("2020-12-10"),
+		CoverImageURL: strPtr("https://example.com/cover.jpg"),
+	}
+
+	created, err := repo.CreateGame(game)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if created.Description == nil || *created.Description != "An open-world RPG set in Night City" {
+		t.Fatalf("expected description to be set, got %v", created.Description)
+	}
+	if created.Publisher == nil || *created.Publisher != "CD Projekt" {
+		t.Fatalf("expected publisher 'CD Projekt', got %v", created.Publisher)
 	}
 }
 

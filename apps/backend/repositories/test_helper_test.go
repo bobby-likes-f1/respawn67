@@ -38,7 +38,3 @@ func setupTestDB() *gorm.DB {
 func strPtr(s string) *string {
 	return &s
 }
-
-func int16Ptr(i int16) *int16 {
-	return &i
-}

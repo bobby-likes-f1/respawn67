@@ -281,3 +281,23 @@ func TestPlaylistRepository_GetGamesByUserID_ExcludesDeletedPlaylistEntries(t *t
 		t.Fatalf("expected 'Game B', got '%s'", games[0].Title)
 	}
 }
+
+func TestPlaylistRepository_Create_WithHoursPlayed(t *testing.T) {
+	db := setupTestDB()
+	repo := &PlaylistRepository{db: db}
+
+	entry := models.Playlist{UserID: 1, GameID: 1, Status: "playing", HoursPlayed: 12.5}
+
+	created, err := repo.Create(entry)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if created.HoursPlayed != 12.5 {
+		t.Fatalf("expected hours_played 12.5, got %f", created.HoursPlayed)
+	}
+
+	found, _ := repo.FindByUserAndGame(1, 1)
+	if found.HoursPlayed != 12.5 {
+		t.Fatalf("expected persisted hours_played 12.5, got %f", found.HoursPlayed)
+	}
+}
