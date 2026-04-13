@@ -52,6 +52,6 @@ func (r *ReviewsRepository) UpdateReview(userID uint, gameID uint, review models
 }
 
 func (r *ReviewsRepository) DeleteReview(userID uint, gameID uint) error {
-	result := r.db.Where("user_id = ? AND game_id = ?", userID, gameID).Delete(&models.Review{})
+	result := r.db.Unscoped().Where("user_id = ? AND game_id = ?", userID, gameID).Delete(&models.Review{})
 	return result.Error
 }

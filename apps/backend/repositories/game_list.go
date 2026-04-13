@@ -98,10 +98,11 @@ func (r *GameListRepository) RemoveItemByListAndGame(listID uint, gameID uint) e
 
 func (r *GameListRepository) GetGamesByListID(listID uint) ([]models.Game, error) {
 	var games []models.Game
-	result := r.db.Raw(
-		"SELECT games.* FROM games INNER JOIN game_list_items ON game_list_items.game_id = games.id WHERE game_list_items.list_id = ? AND game_list_items.deleted_at IS NULL AND games.deleted_at IS NULL",
-		listID,
-	).Scan(&games)
+	result := r.db.
+		Preload("Duration").
+		Joins("INNER JOIN game_list_items ON game_list_items.game_id = games.id").
+		Where("game_list_items.list_id = ?", listID).
+		Find(&games)
 	return games, result.Error
 }
 
