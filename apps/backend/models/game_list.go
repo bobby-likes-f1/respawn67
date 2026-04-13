@@ -10,6 +10,7 @@ type GameList struct {
 	gorm.Model  `json:"-"`
 	ID          uint      `json:"id"`
 	UserID      uint      `json:"user_id"      gorm:"not null"`
+	User        User      `json:"-"       gorm:"foreignKey:UserID"`
 	Name        string    `json:"name"         gorm:"size:255;not null"`
 	Description *string   `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`

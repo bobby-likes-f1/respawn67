@@ -37,6 +37,8 @@ func addGameRoutes(rg *gin.RouterGroup) {
 	gamesRoutes.POST("/", router.PostGames)
 	gamesRoutes.PUT("/:id", router.UpdateGame)
 	gamesRoutes.DELETE("/:id", router.DeleteGame)
+	gamesRoutes.PUT("/:id/duration", router.UpsertDuration)
+	gamesRoutes.DELETE("/:id/duration", router.DeleteDuration)
 }
 
 func (r *GamesRouter) GetAll(c *gin.Context) {
@@ -150,4 +152,57 @@ func (r *GamesRouter) DeleteGame(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "game deleted successfully"})
+}
+
+func (r *GamesRouter) UpsertDuration(c *gin.Context) {
+	if !utils.RequireAuth(c) {
+		return
+	}
+
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
+		return
+	}
+
+	var body struct {
+		MainStoryHours     *float64 `json:"main_story_hours"`
+		MainPlusSidesHours *float64 `json:"main_plus_sides_hours"`
+		CompletionistHours *float64 `json:"completionist_hours"`
+	}
+
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "invalid request body",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	duration, err := r.service.UpsertDuration(uint(id), body.MainStoryHours, body.MainPlusSidesHours, body.CompletionistHours)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, duration)
+}
+
+func (r *GamesRouter) DeleteDuration(c *gin.Context) {
+	if !utils.RequireAuth(c) {
+		return
+	}
+
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
+		return
+	}
+
+	if err := r.service.DeleteDuration(uint(id)); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "duration not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "duration deleted successfully"})
 }
