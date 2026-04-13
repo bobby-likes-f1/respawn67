@@ -24,9 +24,15 @@ export type ApiGame = {
   developer?: string | null;
   release_year?: number | null;
   cover_image_url?: string | null;
+<<<<<<< HEAD
   main_story_hours?: number | null;
   main_plus_extras_hours?: number | null;
   completionist_hours?: number | null;
+=======
+  time_to_beat_main?: number | null;
+  time_to_beat_extras?: number | null;
+  time_to_beat_completionist?: number | null;
+>>>>>>> ce7bf038c4d48d0ca69d1916c659b97eb25b6b5e
 };
 
 export type PlaylistEntry = {
@@ -48,6 +54,7 @@ export type ApiReview = {
   id?: number;
   ID?: number;
   user_id: number;
+  username?: string;
   game_id: number;
   score: number;
   text?: string | null;
