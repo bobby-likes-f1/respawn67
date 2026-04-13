@@ -17,8 +17,9 @@ import {
   Link as LinkIcon,
   LayoutGrid,
   Gamepad2,
-  User,
+  Clock,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import {
   getUserById,
   getAllGames,
@@ -34,7 +35,7 @@ import {
   type ApiGameList,
   type PlaylistEntry,
 } from "@/lib/api";
-import { getInitials, getStoredUser, type AuthUser } from "@/lib/auth";
+import { getInitials, getMemberSinceLabel, getStoredUser, type AuthUser } from "@/lib/auth";
 
 const FALLBACK_COVER =
   "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
@@ -51,25 +52,25 @@ function formatDate(value?: string) {
   return parsed.toLocaleDateString();
 }
 
-type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
+type BacklogStatus = "want_to_play" | "playing" | "completed";
 
 function normalizeBacklogStatus(status: string): BacklogStatus {
   if (status === "playing") return "playing";
   if (status === "completed") return "completed";
-  if (status === "abandoned") return "abandoned";
-  return "backlog";
+  if (status === "backlog") return "want_to_play";
+  return "want_to_play";
 }
 
 function statusToProgress(status: string) {
   if (status === "completed") return 100;
   if (status === "playing") return 45;
-  if (status === "abandoned") return 20;
   return 0;
 }
 
 function formatBacklogStatus(status: BacklogStatus) {
-  if (status === "backlog") return "Backlog";
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  if (status === "want_to_play") return "Up Next";
+  if (status === "playing") return "Playing";
+  return "Completed";
 }
 
 type BacklogPreviewItem = {
@@ -78,6 +79,7 @@ type BacklogPreviewItem = {
   platform: string;
   status: BacklogStatus;
   progress: number;
+  hoursPlayed: number;
   hoursTotal: number;
   coverImageUrl: string | null;
 };
@@ -189,12 +191,15 @@ export default function PublicProfilePage() {
           const hoursTotal = 30; // Pending backend seed
           const progress = backendHours > 0 ? Math.min(100, Math.round((backendHours / hoursTotal) * 100)) : baseProgress;
 
+          const hoursPlayed = backendHours > 0 ? backendHours : Math.round((hoursTotal * baseProgress) / 100);
+
           return {
             id: game.id,
             title: game.title,
             platform: game.genre ?? "Unknown",
             status,
             progress,
+            hoursPlayed,
             hoursTotal,
             coverImageUrl: game.cover_image_url ?? null,
           };
@@ -305,8 +310,7 @@ export default function PublicProfilePage() {
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tight">{profileUser.username}</h1>
               <p className="text-sm text-muted-foreground">
-                <User className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
-                {profileUser.email}
+                Member since {getMemberSinceLabel(profileUser as any) ?? "2026"}
               </p>
             </div>
           </div>
@@ -491,6 +495,10 @@ export default function PublicProfilePage() {
                         <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
                           <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
                           <span className="font-medium text-foreground/80 text-xs sm:text-sm">{formatBacklogStatus(game.status)}</span>
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-azure-500" />
+                            <span className="text-xs font-bold text-foreground">{game.hoursPlayed}h</span>
+                          </div>
                         </div>
                       </div>
                       <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
@@ -498,9 +506,7 @@ export default function PublicProfilePage() {
                           <span>Est. {game.hoursTotal}h</span>
                           <span className="font-medium text-foreground">{game.progress}%</span>
                         </div>
-                        <div className="h-2 w-full bg-abyss-950 rounded-full overflow-hidden border border-abyss-800">
-                          <div className="h-full bg-azure-500" style={{ width: `${game.progress}%` }} />
-                        </div>
+                        <Progress value={game.progress} className="h-2" />
                       </div>
                     </div>
                   ))}

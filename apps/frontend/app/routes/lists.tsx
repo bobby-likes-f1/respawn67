@@ -553,9 +553,14 @@ function ListCard({
   const hasCovers = coverImages.length > 0;
 
   return (
-    <Link
-      to={`/lists/${list.id}`}
-      className="group flex flex-col bg-abyss-900 border border-abyss-700 rounded-xl overflow-hidden hover:border-azure-500/50 hover:shadow-[0_0_20px_rgba(26,133,255,0.12)] transition-all duration-300"
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(`/lists/${list.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") navigate(`/lists/${list.id}`);
+      }}
+      className="group flex flex-col bg-abyss-900 border border-abyss-700 rounded-xl overflow-hidden hover:border-azure-500/50 hover:shadow-[0_0_20px_rgba(26,133,255,0.12)] transition-all duration-300 cursor-pointer"
     >
       {/* Cover Art Mosaic */}
       <div className="relative h-40 bg-abyss-950 overflow-hidden">
@@ -667,8 +672,7 @@ function ListCard({
                 >
                   <DropdownMenuItem
                     className="gap-2"
-                    onSelect={(e) => {
-                      e.preventDefault();
+                    onSelect={() => {
                       onEdit();
                     }}
                   >
@@ -678,8 +682,7 @@ function ListCard({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
-                    onSelect={(e) => {
-                      e.preventDefault();
+                    onSelect={() => {
                       onDelete();
                     }}
                   >
@@ -692,7 +695,7 @@ function ListCard({
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 

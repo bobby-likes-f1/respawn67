@@ -306,19 +306,37 @@ export default function BacklogPage() {
           return game;
         }
 
-        const progress = nextStatus === "playing" ? game.progress : inferProgress(nextStatus);
+        let hoursPlayed = game.hoursPlayed;
+        if (nextStatus === "want_to_play") {
+          hoursPlayed = 0;
+        } else if (nextStatus === "completed") {
+          hoursPlayed = game.hoursTotal;
+        }
+
+        const progress = Math.min(100, Math.round((hoursPlayed / (game.hoursTotal || 1)) * 100));
         return {
           ...game,
           status: nextStatus,
           progress,
-          hoursPlayed: nextStatus === "completed" ? game.hoursTotal : game.hoursPlayed,
+          hoursPlayed,
           priority: inferPriority(nextStatus),
         };
       }),
     );
 
+    const gameToUpdate = games.find((g) => g.id === gameId);
+    let hoursToSend: number | undefined;
+    if (nextStatus === "want_to_play") {
+      hoursToSend = 0;
+    } else if (nextStatus === "completed" && gameToUpdate) {
+      hoursToSend = gameToUpdate.hoursTotal;
+    }
+
     try {
-      await updatePlaylistEntryByGame(user.id, gameId, { status: toApiStatus(nextStatus) });
+      await updatePlaylistEntryByGame(user.id, gameId, {
+        status: toApiStatus(nextStatus),
+        ...(hoursToSend !== undefined ? { hours_played: hoursToSend } : {}),
+      });
     } catch (err) {
       setGames(previous);
       setError(err instanceof Error ? err.message : "Failed to update game status");
@@ -656,13 +674,18 @@ function BacklogItem({
   const [isLogHoursOpen, setIsLogHoursOpen] = useState(false);
   const [draftHours, setDraftHours] = useState(game.hoursPlayed);
 
+  useEffect(() => {
+    if (!isLogHoursOpen) {
+      setDraftHours(game.hoursPlayed);
+    }
+  }, [game.hoursPlayed, isLogHoursOpen]);
+
   const handleSaveHours = () => {
     onUpdateHours(draftHours);
     setIsLogHoursOpen(false);
   };
 
   const handleOpenLogHours = () => {
-    setDraftHours(game.hoursPlayed);
     setIsLogHoursOpen(true);
   };
 

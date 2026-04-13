@@ -16,6 +16,7 @@ const mockGetStoredUser = vi.fn();
 vi.mock("@/lib/auth", () => ({
   getStoredUser: () => mockGetStoredUser(),
   getInitials: () => "U",
+  getMemberSinceLabel: () => null,
 }));
 
 const mockGetUserById = vi.fn();
@@ -73,7 +74,7 @@ describe("PublicProfilePage", () => {
     });
 
     expect(screen.getByText("TargetUser")).toBeInTheDocument();
-    expect(screen.getByText("target@test.com")).toBeInTheDocument();
+    expect(screen.getByText(/Member since/i)).toBeInTheDocument();
     
     // Check tabs
     expect(screen.getByRole("tab", { name: /Profile/i })).toBeInTheDocument();

@@ -41,7 +41,12 @@ import {
   MoreHorizontal,
   Gamepad2,
   ExternalLink,
+  PlayCircle,
+  ArrowRightCircle,
+  CheckCircle2,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
 import {
   getAllGames,
   getFavoriteGames,
@@ -80,11 +85,12 @@ type BacklogPreviewItem = {
   platform: string;
   status: BacklogStatus;
   progress: number;
+  hoursPlayed: number;
   hoursTotal: number;
   coverImageUrl: string | null;
 };
 
-type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
+type BacklogStatus = "want_to_play" | "playing" | "completed";
 
 type UserListItem = ApiGameList & {
   gameCount: number;
@@ -97,25 +103,24 @@ const FALLBACK_COVER =
 export function statusToProgress(status: string) {
   if (status === "completed") return 100;
   if (status === "playing") return 45;
-  if (status === "abandoned") return 20;
   return 0;
 }
 
 export function normalizeBacklogStatus(status: string): BacklogStatus {
   if (status === "playing") return "playing";
   if (status === "completed") return "completed";
-  if (status === "abandoned") return "abandoned";
-  return "backlog";
+  if (status === "backlog") return "want_to_play";
+  return "want_to_play";
 }
 
 export function toApiBacklogStatus(status: BacklogStatus) {
-  if (status === "backlog") return "want_to_play";
   return status;
 }
 
 export function formatBacklogStatus(status: BacklogStatus) {
-  if (status === "backlog") return "Backlog";
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  if (status === "want_to_play") return "Up Next";
+  if (status === "playing") return "Playing";
+  return "Completed";
 }
 
 export function formatDate(value?: string) {
@@ -241,12 +246,15 @@ export default function AccountPage() {
           const hoursTotal = 30; // Will be properly seeded eventually
           const progress = backendHours > 0 ? Math.min(100, Math.round((backendHours / hoursTotal) * 100)) : baseProgress;
 
+          const hoursPlayed = backendHours > 0 ? backendHours : Math.round((hoursTotal * baseProgress) / 100);
+
           return {
             id: game.id,
             title: game.title,
             platform: game.genre ?? "Unknown",
             status,
             progress,
+            hoursPlayed,
             hoursTotal,
             coverImageUrl: game.cover_image_url ?? null,
           };
@@ -477,19 +485,34 @@ export default function AccountPage() {
 
     const previous = backlogPreview;
     setBacklogPreview((current) =>
-      current.map((game) =>
-        game.id === gameId
-          ? {
-              ...game,
-              status: nextStatus,
-              progress: statusToProgress(nextStatus),
-            }
-          : game,
-      ),
+      current.map((game) => {
+        if (game.id !== gameId) return game;
+
+        let hoursPlayed = game.hoursPlayed;
+        if (nextStatus === "want_to_play") {
+          hoursPlayed = 0;
+        } else if (nextStatus === "completed") {
+          hoursPlayed = game.hoursTotal;
+        }
+
+        const progress = Math.min(100, Math.round((hoursPlayed / (game.hoursTotal || 1)) * 100));
+        return { ...game, status: nextStatus, hoursPlayed, progress };
+      }),
     );
 
+    const gameToUpdate = backlogPreview.find((g) => g.id === gameId);
+    let hoursToSend: number | undefined;
+    if (nextStatus === "want_to_play") {
+      hoursToSend = 0;
+    } else if (nextStatus === "completed" && gameToUpdate) {
+      hoursToSend = gameToUpdate.hoursTotal;
+    }
+
     try {
-      await updatePlaylistEntryByGame(user.id, gameId, { status: toApiBacklogStatus(nextStatus) });
+      await updatePlaylistEntryByGame(user.id, gameId, {
+        status: toApiBacklogStatus(nextStatus),
+        ...(hoursToSend !== undefined ? { hours_played: hoursToSend } : {}),
+      });
     } catch (err) {
       setBacklogPreview(previous);
       setError(err instanceof Error ? err.message : "Failed to update backlog item");
@@ -516,6 +539,50 @@ export default function AccountPage() {
     } catch (err) {
       setBacklogPreview(previous);
       setError(err instanceof Error ? err.message : "Failed to remove backlog item");
+    } finally {
+      setBusyBacklogGameId(null);
+    }
+  };
+
+  const handleBacklogUpdateHours = async (gameId: number, hoursPlayed: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyBacklogGameId(gameId);
+
+    const previous = backlogPreview;
+    setBacklogPreview((current) =>
+      current.map((game) => {
+        if (game.id !== gameId) return game;
+
+        let status = game.status;
+        if (status === "want_to_play" && hoursPlayed > 0) status = "playing";
+        if (hoursPlayed >= game.hoursTotal && game.hoursTotal > 0) status = "completed";
+
+        const progress = Math.min(100, Math.round((hoursPlayed / (game.hoursTotal || 1)) * 100));
+        return { ...game, status, hoursPlayed, progress };
+      }),
+    );
+
+    const gameToUpdate = backlogPreview.find((g) => g.id === gameId);
+    if (!gameToUpdate) return;
+
+    let targetStatus: BacklogStatus = gameToUpdate.status;
+    if (targetStatus === "want_to_play" && hoursPlayed > 0) targetStatus = "playing";
+    if (hoursPlayed >= gameToUpdate.hoursTotal && gameToUpdate.hoursTotal > 0) targetStatus = "completed";
+
+    try {
+      await updatePlaylistEntryByGame(user.id, gameId, {
+        status: toApiBacklogStatus(targetStatus),
+        hours_played: hoursPlayed,
+      });
+    } catch (err) {
+      setBacklogPreview(previous);
+      setError(err instanceof Error ? err.message : "Failed to update logged hours");
     } finally {
       setBusyBacklogGameId(null);
     }
@@ -829,57 +896,16 @@ export default function AccountPage() {
               {backlogPreview.length > 0 ? (
                 <div className="flex flex-col gap-4">
                   {backlogPreview.map((game) => (
-                    <div key={game.id} className="flex flex-row items-center p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-800 rounded-lg">
-                      <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800">
-                        <img
-                          src={changeImageSize(game.coverImageUrl, "cover_big")}
-                          alt={game.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex flex-col flex-1 min-w-0 justify-center">
-                        <h4 className="font-bold text-lg truncate">{game.title}</h4>
-                        <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
-                          <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
-                          <span className="font-medium text-foreground/80 text-xs sm:text-sm">{formatBacklogStatus(game.status)}</span>
-                        </div>
-                      </div>
-                      <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Est. {game.hoursTotal}h</span>
-                          <span className="font-medium text-foreground">{game.progress}%</span>
-                        </div>
-                        <div className="h-2 w-full bg-abyss-950 rounded-full overflow-hidden border border-abyss-800">
-                          <div className="h-full bg-azure-500" style={{ width: `${game.progress}%` }} />
-                        </div>
-                      </div>
-                      <div className="flex min-w-[168px] flex-col gap-2">
-                        <Select
-                          value={game.status}
-                          onValueChange={(value) => handleBacklogStatusChange(game.id, value as BacklogStatus)}
-                          disabled={busyBacklogGameId === game.id}
-                        >
-                          <SelectTrigger className="border-abyss-700 bg-abyss-950/80">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="backlog">Backlog</SelectItem>
-                            <SelectItem value="playing">Playing</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="abandoned">Abandoned</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
-                          onClick={() => handleBacklogRemove(game.id)}
-                          disabled={busyBacklogGameId === game.id}
-                        >
-                          <Trash2 className="h-4 w-4" /> Remove
-                        </Button>
-                      </div>
-                    </div>
+                    <BacklogCardItem
+                      key={game.id}
+                      game={game}
+                      isBusy={busyBacklogGameId === game.id}
+                      onMarkPlaying={() => handleBacklogStatusChange(game.id, "playing")}
+                      onMoveToUpNext={() => handleBacklogStatusChange(game.id, "want_to_play")}
+                      onMarkCompleted={() => handleBacklogStatusChange(game.id, "completed")}
+                      onRemove={() => handleBacklogRemove(game.id)}
+                      onUpdateHours={(hours) => handleBacklogUpdateHours(game.id, hours)}
+                    />
                   ))}
                 </div>
               ) : (
@@ -1102,5 +1128,148 @@ export default function AccountPage() {
         </Tabs>
       </main>
     </div>
+  );
+}
+
+function BacklogCardItem({
+  game,
+  isBusy,
+  onMarkPlaying,
+  onMoveToUpNext,
+  onMarkCompleted,
+  onRemove,
+  onUpdateHours,
+}: {
+  game: BacklogPreviewItem;
+  isBusy: boolean;
+  onMarkPlaying: () => void;
+  onMoveToUpNext: () => void;
+  onMarkCompleted: () => void;
+  onRemove: () => void;
+  onUpdateHours: (hours: number) => void;
+}) {
+  const [isLogHoursOpen, setIsLogHoursOpen] = useState(false);
+  const [draftHours, setDraftHours] = useState(game.hoursPlayed);
+
+  useEffect(() => {
+    if (!isLogHoursOpen) {
+      setDraftHours(game.hoursPlayed);
+    }
+  }, [game.hoursPlayed, isLogHoursOpen]);
+
+  const handleOpenLogHours = () => {
+    setIsLogHoursOpen(true);
+  };
+
+  const handleSaveHours = () => {
+    onUpdateHours(draftHours);
+    setIsLogHoursOpen(false);
+  };
+
+  return (
+    <>
+      <div className="flex flex-row items-center p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-800 rounded-lg">
+        <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800">
+          <img
+            src={changeImageSize(game.coverImageUrl, "cover_big")}
+            alt={game.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex flex-col flex-1 min-w-0 justify-center">
+          <h4 className="font-bold text-lg truncate">{game.title}</h4>
+          <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
+            <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
+            <span className="font-medium text-foreground/80 text-xs sm:text-sm">{formatBacklogStatus(game.status)}</span>
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3 text-azure-500" />
+              <span className="text-xs font-bold text-foreground">{game.hoursPlayed}h</span>
+            </div>
+          </div>
+        </div>
+        <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Est. {game.hoursTotal}h</span>
+            <span className="font-medium text-foreground">{game.progress}%</span>
+          </div>
+          <Progress value={game.progress} className="h-2" />
+        </div>
+        <div className="shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isBusy}>
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem className="gap-2" onSelect={onMarkPlaying}>
+                <PlayCircle className="w-4 h-4" /> Mark as Playing
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={handleOpenLogHours}>
+                <Clock className="w-4 h-4" /> Log Hours Played
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={onMoveToUpNext}>
+                <ArrowRightCircle className="w-4 h-4" /> Move to Up Next
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={onMarkCompleted}>
+                <CheckCircle2 className="w-4 h-4" /> Mark as Completed
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                onSelect={onRemove}
+              >
+                <Trash2 className="w-4 h-4" /> Remove from Backlog
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <Dialog open={isLogHoursOpen} onOpenChange={setIsLogHoursOpen}>
+        <DialogContent className="sm:max-w-[450px] bg-abyss-950 border-abyss-800">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-black tracking-tighter">LOG HOURS</DialogTitle>
+            <DialogDescription>
+              Update your progress for <span className="text-foreground font-bold">{game.title}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-8 pt-4">
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">New Total</span>
+                  <span className="text-3xl font-black text-azure-500 tracking-tighter">{draftHours}h</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Current</span>
+                  <span className="text-xl font-bold opacity-50">{game.hoursPlayed}h</span>
+                </div>
+              </div>
+              <div className="relative px-2 py-4 bg-abyss-900/50 border border-abyss-800 rounded-xl">
+                <Slider
+                  value={[draftHours]}
+                  max={Math.max(game.hoursTotal, game.hoursPlayed) * 1.5}
+                  step={1}
+                  onValueChange={(vals) => setDraftHours(vals[0])}
+                  className="py-4"
+                />
+              </div>
+              <div className="bg-azure-500/5 border border-azure-500/10 p-4 rounded-xl space-y-2">
+                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-azure-500">
+                  <span>Projected Completion</span>
+                  <span>{Math.min(100, Math.round((draftHours / game.hoursTotal) * 100))}%</span>
+                </div>
+                <Progress value={(draftHours / (game.hoursTotal || 1)) * 100} className="h-2" />
+              </div>
+            </div>
+            <DialogFooter className="pt-4 border-t border-abyss-800">
+              <Button variant="ghost" onClick={() => setIsLogHoursOpen(false)} className="font-bold uppercase tracking-widest text-[10px]">Discard</Button>
+              <Button onClick={handleSaveHours} className="bg-azure-600 hover:bg-azure-500 text-white font-black uppercase tracking-widest text-[10px] px-8">Confirm Log</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
