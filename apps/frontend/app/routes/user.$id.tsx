@@ -32,6 +32,7 @@ import {
   type ApiGame,
   type ApiReview,
   type ApiGameList,
+  type PlaylistEntry,
 } from "@/lib/api";
 import { getInitials, getStoredUser, type AuthUser } from "@/lib/auth";
 
@@ -175,20 +176,26 @@ export default function PublicProfilePage() {
         );
 
         // map backlog
-        const statusByGameId = new Map<number, string>();
+        const entryByGameId = new Map<number, PlaylistEntry>();
         for (const entry of playlistEntries) {
-          statusByGameId.set(entry.game_id, entry.status);
+          entryByGameId.set(entry.game_id, entry);
         }
 
         const preview = (playlistGames as ApiGame[]).map((game) => {
-          const status = normalizeBacklogStatus(statusByGameId.get(game.id) ?? "want_to_play");
+          const entry = entryByGameId.get(game.id);
+          const status = normalizeBacklogStatus(entry?.status ?? "want_to_play");
+          const baseProgress = statusToProgress(status);
+          const backendHours = entry?.hours_played && entry.hours_played > 0 ? entry.hours_played : 0;
+          const hoursTotal = 30; // Pending backend seed
+          const progress = backendHours > 0 ? Math.min(100, Math.round((backendHours / hoursTotal) * 100)) : baseProgress;
+
           return {
             id: game.id,
             title: game.title,
             platform: game.genre ?? "Unknown",
             status,
-            progress: statusToProgress(status),
-            hoursTotal: 30,
+            progress,
+            hoursTotal,
             coverImageUrl: game.cover_image_url ?? null,
           };
         });

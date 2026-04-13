@@ -32,6 +32,9 @@ export type PlaylistEntry = {
   user_id: number;
   game_id: number;
   status: string;
+  hours_played?: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type FavoriteEntry = {
@@ -168,11 +171,15 @@ export function addToPlaylist(userId: number, gameId: number, status = "want_to_
   });
 }
 
-export function updatePlaylistStatusByGame(userId: number, gameId: number, status: string) {
+export function updatePlaylistEntryByGame(
+  userId: number,
+  gameId: number,
+  payload: { status?: string; hours_played?: number },
+) {
   return apiRequest<PlaylistEntry>(`/users/${userId}/playlist/game/${gameId}`, {
     method: "PUT",
     auth: true,
-    body: { status },
+    body: payload,
   });
 }
 

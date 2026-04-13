@@ -51,7 +51,7 @@ import {
   deleteReview,
   removeFavoriteByGame,
   removeFromPlaylist,
-  updatePlaylistStatusByGame,
+  updatePlaylistEntryByGame,
   updateReview,
   getUserLists,
   getListGames,
@@ -61,6 +61,7 @@ import {
   type ApiGame,
   type ApiReview,
   type ApiGameList,
+  type PlaylistEntry,
 } from "@/lib/api";
 import { getInitials, getMemberSinceLabel, getStoredUser, type AuthUser } from "@/lib/auth";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -227,20 +228,26 @@ export default function AccountPage() {
           })),
         );
 
-        const statusByGameId = new Map<number, string>();
+        const entryByGameId = new Map<number, PlaylistEntry>();
         for (const entry of playlistEntries) {
-          statusByGameId.set(entry.game_id, entry.status);
+          entryByGameId.set(entry.game_id, entry);
         }
 
         const preview = playlistGames.map((game) => {
-          const status = normalizeBacklogStatus(statusByGameId.get(game.id) ?? "want_to_play");
+          const entry = entryByGameId.get(game.id);
+          const status = normalizeBacklogStatus(entry?.status ?? "want_to_play");
+          const baseProgress = statusToProgress(status);
+          const backendHours = entry?.hours_played && entry.hours_played > 0 ? entry.hours_played : 0;
+          const hoursTotal = 30; // Will be properly seeded eventually
+          const progress = backendHours > 0 ? Math.min(100, Math.round((backendHours / hoursTotal) * 100)) : baseProgress;
+
           return {
             id: game.id,
             title: game.title,
             platform: game.genre ?? "Unknown",
             status,
-            progress: statusToProgress(status),
-            hoursTotal: 30,
+            progress,
+            hoursTotal,
             coverImageUrl: game.cover_image_url ?? null,
           };
         });
@@ -482,7 +489,7 @@ export default function AccountPage() {
     );
 
     try {
-      await updatePlaylistStatusByGame(user.id, gameId, toApiBacklogStatus(nextStatus));
+      await updatePlaylistEntryByGame(user.id, gameId, { status: toApiBacklogStatus(nextStatus) });
     } catch (err) {
       setBacklogPreview(previous);
       setError(err instanceof Error ? err.message : "Failed to update backlog item");

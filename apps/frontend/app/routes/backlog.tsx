@@ -22,6 +22,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
+import {
   Search,
   Filter,
   PlayCircle,
@@ -41,7 +50,7 @@ import {
   getPlaylistEntries,
   getPlaylistGames,
   removeFromPlaylist,
-  updatePlaylistStatusByGame,
+  updatePlaylistEntryByGame,
   type ApiGame,
   type PlaylistEntry,
 } from "@/lib/api";
@@ -49,7 +58,7 @@ import { getStoredUser } from "@/lib/auth";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import type { Route } from "./+types/backlog";
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [{ title: "My Backlog | Respawn67" }];
 }
 
@@ -95,15 +104,20 @@ export function inferPriority(status: BacklogStatus): BacklogGame["priority"] {
 }
 
 export function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): BacklogGame[] {
-  const statusByGameId = new Map<number, BacklogStatus>();
+  const entryMap = new Map<number, PlaylistEntry>();
   for (const entry of entries) {
-    statusByGameId.set(entry.game_id, normalizeStatus(entry.status));
+    entryMap.set(entry.game_id, entry);
   }
 
   return games.map((game) => {
-    const status = statusByGameId.get(game.id) ?? "want_to_play";
+    const entry = entryMap.get(game.id);
+    const status = normalizeStatus(entry?.status ?? "want_to_play");
     const hoursTotal = status === "completed" ? 40 : 30;
-    const progress = inferProgress(status);
+    const baseProgress = inferProgress(status);
+
+    const backendHours = entry?.hours_played && entry.hours_played > 0 ? entry.hours_played : 0;
+    const hoursPlayed = backendHours > 0 ? backendHours : Math.round((hoursTotal * baseProgress) / 100);
+    const progress = backendHours > 0 ? Math.min(100, Math.round((backendHours / hoursTotal) * 100)) : baseProgress;
 
     return {
       id: game.id,
@@ -111,7 +125,7 @@ export function mapBacklogGames(entries: PlaylistEntry[], games: ApiGame[]): Bac
       platform: game.genre ?? "Unknown",
       status,
       progress,
-      hoursPlayed: Math.round((hoursTotal * progress) / 100),
+      hoursPlayed,
       hoursTotal,
       cover: game.cover_image_url ?? FALLBACK_COVER,
       priority: inferPriority(status),
@@ -292,22 +306,76 @@ export default function BacklogPage() {
           return game;
         }
 
-        const progress = inferProgress(nextStatus);
+        const progress = nextStatus === "playing" ? game.progress : inferProgress(nextStatus);
         return {
           ...game,
           status: nextStatus,
           progress,
-          hoursPlayed: Math.round((game.hoursTotal * progress) / 100),
+          hoursPlayed: nextStatus === "completed" ? game.hoursTotal : game.hoursPlayed,
           priority: inferPriority(nextStatus),
         };
       }),
     );
 
     try {
-      await updatePlaylistStatusByGame(user.id, gameId, toApiStatus(nextStatus));
+      await updatePlaylistEntryByGame(user.id, gameId, { status: toApiStatus(nextStatus) });
     } catch (err) {
       setGames(previous);
       setError(err instanceof Error ? err.message : "Failed to update game status");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleUpdateHours = async (gameId: number, hoursPlayed: number) => {
+    const user = getStoredUser();
+    if (!user) return;
+
+    setIsMutating(true);
+    setError(null);
+
+    const previous = games;
+    setGames((current) =>
+      current.map((game) => {
+        if (game.id !== gameId) return game;
+        
+        let status = game.status;
+        if (status === "want_to_play" && hoursPlayed > 0) {
+          status = "playing";
+        }
+        if (hoursPlayed >= game.hoursTotal && game.hoursTotal > 0) {
+          status = "completed";
+        }
+
+        const progress = Math.min(100, Math.round((hoursPlayed / (game.hoursTotal || 1)) * 100));
+        return {
+          ...game,
+          status,
+          hoursPlayed,
+          progress,
+        };
+      }),
+    );
+
+    const gameToUpdate = games.find((g) => g.id === gameId);
+    if (!gameToUpdate) return;
+
+    let targetStatus = gameToUpdate.status;
+    if (targetStatus === "want_to_play" && hoursPlayed > 0) {
+      targetStatus = "playing";
+    }
+    if (hoursPlayed >= gameToUpdate.hoursTotal && gameToUpdate.hoursTotal > 0) {
+      targetStatus = "completed";
+    }
+
+    try {
+      await updatePlaylistEntryByGame(user.id, gameId, { 
+        status: targetStatus, 
+        hours_played: hoursPlayed 
+      });
+    } catch (err) {
+      setGames(previous);
+      setError(err instanceof Error ? err.message : "Failed to update logged hours");
     } finally {
       setIsMutating(false);
     }
@@ -531,6 +599,7 @@ export default function BacklogPage() {
                   onMoveToBacklog={() => handleStatusUpdate(game.id, "want_to_play")}
                   onMarkCompleted={() => handleStatusUpdate(game.id, "completed")}
                   onRemove={() => handleRemove(game.id)}
+                  onUpdateHours={(hours) => handleUpdateHours(game.id, hours)}
                 />
               ))}
             </div>
@@ -572,6 +641,7 @@ function BacklogItem({
   onMoveToBacklog,
   onMarkCompleted,
   onRemove,
+  onUpdateHours,
 }: {
   game: BacklogGame;
   view: "grid" | "list";
@@ -581,47 +651,122 @@ function BacklogItem({
   onMoveToBacklog: () => void;
   onMarkCompleted: () => void;
   onRemove: () => void;
+  onUpdateHours: (hours: number) => void;
 }) {
-  if (view === "list") {
+  const [isLogHoursOpen, setIsLogHoursOpen] = useState(false);
+  const [draftHours, setDraftHours] = useState(game.hoursPlayed);
+
+  const handleSaveHours = () => {
+    onUpdateHours(draftHours);
+    setIsLogHoursOpen(false);
+  };
+
+  const handleOpenLogHours = () => {
+    setDraftHours(game.hoursPlayed);
+    setIsLogHoursOpen(true);
+  };
+
+  const renderCard = () => {
+    if (view === "list") {
+      return (
+        <Card className="flex flex-row items-center p-3 sm:p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-700 hover:ring-2 hover:ring-primary transition-all group text-left w-full">
+          <div className="w-12 sm:w-16 h-16 sm:h-24 rounded-md overflow-hidden shrink-0 bg-muted border shadow-sm">
+            <img src={game.cover} alt={game.title} className="w-full h-full object-cover" />
+          </div>
+          <div className="flex flex-col flex-1 min-w-0 justify-center">
+            <h4 className="font-bold text-base sm:text-lg truncate">{game.title}</h4>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1.5">
+              <Badge className="text-[10px] py-0 bg-abyss-950/80 text-abyss-50 border border-abyss-700 uppercase tracking-tighter">{game.platform}</Badge>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-azure-500" />
+                <span className="font-bold text-foreground">{game.hoursPlayed}h</span>
+              </div>
+            </div>
+          </div>
+          <div className="hidden md:flex flex-col w-40 lg:w-56 shrink-0 gap-1.5 px-4 border-l border-abyss-800">
+            <div className="flex justify-between text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+              <span>{formatStatusLabel(game.status)}</span>
+              <span>{game.progress}%</span>
+            </div>
+            <Progress value={game.progress} className="h-1.5" />
+          </div>
+          <div className="shrink-0">
+            <CardActions
+              gameId={gameId}
+              isMutating={isMutating}
+              onMarkPlaying={onMarkPlaying}
+              onMoveToBacklog={onMoveToBacklog}
+              onMarkCompleted={onMarkCompleted}
+              onRemove={onRemove}
+              onOpenLogHours={handleOpenLogHours}
+            />
+          </div>
+        </Card>
+      );
+    }
     return (
-      <Card className="flex flex-row items-center p-3 sm:p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-700 hover:ring-2 hover:ring-primary transition-all group text-left">
-        <div className="w-12 sm:w-16 h-16 sm:h-24 rounded-md overflow-hidden shrink-0 bg-muted border shadow-sm">
-          <img
-            src={game.cover}
-            alt={game.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-
-        <div className="flex flex-col flex-1 min-w-0 justify-center">
-          <h4 className="font-bold text-base sm:text-lg truncate">
-            {game.title}
-          </h4>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground mt-1.5">
-            <Badge className="text-[10px] py-0 bg-abyss-900/80 text-abyss-50 border border-abyss-700">
-              {game.platform}
-            </Badge>
-            <span className="font-medium text-foreground/80">
-              {formatStatusLabel(game.status)}
-            </span>
-            <span className="hidden sm:inline">•</span>
-            <span className="hidden sm:inline">
-              {game.hoursPlayed}h / {game.hoursTotal}h est.
-            </span>
+      <Card className={`group overflow-hidden flex flex-col h-full bg-abyss-900/50 border transition-all duration-300 ${game.status === 'playing' ? 'border-azure-500/50 ring-1 ring-azure-500/20 shadow-[0_4px_20px_rgba(59,130,246,0.15)]' : 'border-abyss-700 hover:border-abyss-600'}`}>
+        <div className="relative">
+          <AspectRatio ratio={16 / 9} className="bg-muted">
+            <img src={game.cover} alt={game.title} className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110" />
+            <div className="absolute inset-0 bg-gradient-to-t from-abyss-950 via-abyss-950/20 to-transparent" />
+          </AspectRatio>
+          <div className="absolute top-3 right-3 flex flex-col gap-2 scale-90 origin-top-right">
+            {game.status === "playing" && (
+              <Badge className="bg-azure-500 text-white font-black shadow-lg shadow-azure-500/40 border-none animate-in zoom-in duration-300">PLAYING</Badge>
+            )}
+            {game.status === "completed" && (
+              <Badge className="bg-azure-900/50 text-azure-200 border border-azure-500/30 font-black shadow-lg shadow-black/20">DONE</Badge>
+            )}
+            {game.priority === "High" && game.status === "want_to_play" && (
+              <Badge variant="destructive" className="font-black">HIGH PRIORITY</Badge>
+            )}
+          </div>
+          <div className="absolute top-3 left-3">
+            <Badge variant="outline" className="bg-black/40 backdrop-blur-md text-white border-white/10 text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{game.platform}</Badge>
+          </div>
+          <div className="absolute bottom-3 left-4 right-4">
+            <h3 className="font-black text-xl text-white leading-none drop-shadow-2xl truncate tracking-tight">{game.title}</h3>
           </div>
         </div>
-
-        <div className="hidden md:flex flex-col w-32 lg:w-48 shrink-0 gap-1.5 px-4">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Progress</span>
-            <span className="font-medium text-foreground">
-              {game.progress}%
-            </span>
+        <CardContent className="p-4 flex-1 space-y-5">
+          <div className="space-y-2">
+            <div className="flex justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span>Current Progress</span>
+              <span className="text-foreground">{game.progress}%</span>
+            </div>
+            <div className="relative group/progress">
+              <Progress value={game.progress} className={`h-2.5 bg-abyss-800 border border-abyss-700/50 ${game.status === 'playing' ? 'shadow-[0_0_10px_rgba(59,130,246,0.2)]' : ''}`} />
+              {game.status === 'playing' && (
+                <div className="absolute inset-0 bg-azure-500/20 animate-pulse rounded-full pointer-events-none" />
+              )}
+            </div>
           </div>
-          <Progress value={game.progress} className="h-2" />
-        </div>
 
-        <div className="shrink-0">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 group/time">
+                <div className="p-1.5 rounded-md bg-azure-500/10 border border-azure-500/20 group-hover/time:bg-azure-500/20 transition-colors">
+                  <Clock className="w-3.5 h-3.5 text-azure-500" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold leading-none">Played</span>
+                  <span className="text-sm font-bold">{game.hoursPlayed}h</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-abyss-950/50 border border-abyss-800 p-2.5 rounded-lg">
+              <Trophy className="w-3.5 h-3.5 text-azure-400 opacity-70" />
+              <div className="flex flex-col">
+                <span className="text-[9px] text-muted-foreground uppercase font-bold leading-none">Estimate</span>
+                <span className="text-xs font-semibold">{game.hoursTotal}h to beat</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="p-4 pt-0 flex justify-between items-center border-t border-abyss-800 bg-abyss-950/20">
+          <div className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{formatStatusLabel(game.status)}</div>
           <CardActions
             gameId={gameId}
             isMutating={isMutating}
@@ -629,93 +774,65 @@ function BacklogItem({
             onMoveToBacklog={onMoveToBacklog}
             onMarkCompleted={onMarkCompleted}
             onRemove={onRemove}
+            onOpenLogHours={handleOpenLogHours}
           />
-        </div>
+        </CardFooter>
       </Card>
     );
-  }
+  };
+
   return (
-    <Card className="group overflow-hidden flex flex-col h-full bg-abyss-900/50 border border-abyss-700 hover:ring-2 hover:ring-primary transition-all">
-      <div className="relative">
-        <AspectRatio ratio={16 / 9} className="bg-muted">
-          <img
-            src={game.cover}
-            alt={game.title}
-            className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-60" />
-        </AspectRatio>
+    <>
+      {renderCard()}
+      <Dialog open={isLogHoursOpen} onOpenChange={setIsLogHoursOpen}>
+        <DialogContent className="sm:max-w-[450px] bg-abyss-950 border-abyss-800">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-black tracking-tighter">LOG HOURS</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Update your progress for <span className="text-foreground font-bold">{game.title}</span>.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="absolute top-2 right-2">
-          {game.status === "playing" && (
-            <Badge className="bg-azure-500 animate-pulse">Playing</Badge>
-          )}
-          {game.status === "completed" && (
-            <Badge
-              variant="secondary"
-              className="bg-azure-500/20 text-azure-200 border-azure-500/50"
-            >
-              Done
-            </Badge>
-          )}
-          {game.priority === "High" && game.status === "want_to_play" && (
-            <Badge variant="destructive">High Priority</Badge>
-          )}
-        </div>
+          <div className="space-y-8 pt-4">
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">New Total</span>
+                  <span className="text-3xl font-black text-azure-500 tracking-tighter">{draftHours}h</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Current</span>
+                  <span className="text-xl font-bold opacity-50">{game.hoursPlayed}h</span>
+                </div>
+              </div>
 
-        <div className="absolute top-2 left-2">
-          <Badge
-            variant="outline"
-            className="bg-black/50 backdrop-blur-md text-white border-white/20"
-          >
-            {game.platform}
-          </Badge>
-        </div>
+              <div className="relative px-2 py-4 bg-abyss-900/50 border border-abyss-800 rounded-xl">
+                <Slider
+                  value={[draftHours]}
+                  max={Math.max(game.hoursTotal, game.hoursPlayed) * 1.5}
+                  step={1}
+                  onValueChange={(vals) => setDraftHours(vals[0])}
+                  className="py-4"
+                />
+              </div>
 
-        <div className="absolute bottom-3 left-4 right-4">
-          <h3 className="font-bold text-lg text-white leading-tight drop-shadow-md truncate">
-            {game.title}
-          </h3>
-        </div>
-      </div>
+              <div className="bg-azure-500/5 border border-azure-500/10 p-4 rounded-xl space-y-2">
+                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-azure-500">
+                  <span>Projected Completion</span>
+                  <span>{Math.min(100, Math.round((draftHours / game.hoursTotal) * 100))}%</span>
+                </div>
+                <Progress value={(draftHours / (game.hoursTotal || 1)) * 100} className="h-2" />
+              </div>
+            </div>
 
-      <CardContent className="p-4 flex-1 space-y-4">
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Progress</span>
-            <span className="font-medium text-foreground">
-              {game.progress}%
-            </span>
+            <DialogFooter className="pt-4 border-t border-abyss-800">
+              <Button variant="ghost" onClick={() => setIsLogHoursOpen(false)} className="font-bold uppercase tracking-widest text-[10px]">Discard</Button>
+              <Button onClick={handleSaveHours} className="bg-azure-600 hover:bg-azure-500 text-white font-black uppercase tracking-widest text-[10px] px-8">Confirm Log</Button>
+            </DialogFooter>
           </div>
-          <Progress value={game.progress} className="h-2 bg-muted" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground bg-abyss-800/50 border border-abyss-700 p-2 rounded-md">
-            <Clock className="w-3 h-3 text-azure-500" />
-            <span>{game.hoursPlayed}h played</span>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground bg-abyss-800/50 border border-abyss-700 p-2 rounded-md">
-            <Trophy className="w-3 h-3 text-azure-400" />
-            <span>{game.hoursTotal}h est.</span>
-          </div>
-        </div>
-      </CardContent>
-
-      <CardFooter className="p-4 pt-0 flex justify-between items-center border-t border-abyss-700 bg-abyss-900/30">
-        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-          {formatStatusLabel(game.status)}
-        </div>
-        <CardActions
-          gameId={gameId}
-          isMutating={isMutating}
-          onMarkPlaying={onMarkPlaying}
-          onMoveToBacklog={onMoveToBacklog}
-          onMarkCompleted={onMarkCompleted}
-          onRemove={onRemove}
-        />
-      </CardFooter>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -726,6 +843,7 @@ function CardActions({
   onMoveToBacklog,
   onMarkCompleted,
   onRemove,
+  onOpenLogHours,
 }: {
   gameId: number;
   isMutating: boolean;
@@ -733,6 +851,7 @@ function CardActions({
   onMoveToBacklog: () => void;
   onMarkCompleted: () => void;
   onRemove: () => void;
+  onOpenLogHours: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -744,6 +863,9 @@ function CardActions({
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem className="gap-2" onSelect={onMarkPlaying}>
           <PlayCircle className="w-4 h-4" /> Mark as Playing
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2" onSelect={onOpenLogHours}>
+          <Clock className="w-4 h-4" /> Log Hours Played
         </DropdownMenuItem>
         <DropdownMenuItem className="gap-2" onSelect={onMoveToBacklog}>
           <ArrowRightCircle className="w-4 h-4" /> Move to Up Next

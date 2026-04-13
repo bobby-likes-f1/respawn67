@@ -32,7 +32,7 @@ import {
   getPlaylistEntries,
   getPlaylistGames,
   addToPlaylist,
-  updatePlaylistStatusByGame,
+  updatePlaylistEntryByGame,
   removeFromPlaylist,
   getFavoriteEntries,
   getFavoriteGames,
@@ -135,9 +135,9 @@ describe("playlist endpoints", () => {
     expect(fetchMock.mock.calls[0][1]?.method).toBe("POST");
   });
 
-  it("updatePlaylistStatusByGame sends PUT", async () => {
+  it("updatePlaylistEntryByGame sends PUT", async () => {
     fetchMock.mockResolvedValueOnce(jsonOk({}));
-    await updatePlaylistStatusByGame(1, 2, "completed");
+    await updatePlaylistEntryByGame(1, 2, { status: "completed" });
     expect(fetchMock.mock.calls[0][1]?.method).toBe("PUT");
   });
 
