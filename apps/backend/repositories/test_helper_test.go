@@ -24,6 +24,8 @@ func setupTestDB() *gorm.DB {
 		&models.Playlist{},
 		&models.Favorite{},
 		&models.Review{},
+		&models.GameList{},
+		&models.GameListItem{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate test database:", err)
