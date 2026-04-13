@@ -24,6 +24,9 @@ export type ApiGame = {
   developer?: string | null;
   release_year?: number | null;
   cover_image_url?: string | null;
+  main_story_hours?: number | null;
+  main_plus_extras_hours?: number | null;
+  completionist_hours?: number | null;
 };
 
 export type PlaylistEntry = {
