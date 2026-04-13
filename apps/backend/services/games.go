@@ -1,8 +1,10 @@
 package services
 
 import (
+	"errors"
 	"respawn67/models"
 	"respawn67/repositories"
+	"time"
 )
 
 type GamesService struct {
@@ -22,6 +24,13 @@ func (s *GamesService) GetGameByID(id uint) (models.Game, error) {
 }
 
 func (s *GamesService) CreateGame(game models.Game) (models.Game, error) {
+	
+	if game.ReleaseDate != nil {
+		_, err := time.Parse("2006-01-02", *game.ReleaseDate)
+		if err != nil {
+			return models.Game{}, errors.New("release_date must be in YYYY-MM-DD format")
+		}
+	}
 	return s.repo.CreateGame(game)
 }
 
