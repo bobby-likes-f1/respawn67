@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, type LoaderFunctionArgs, useLoaderData } from "react-router";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Star,
   Eye,
@@ -24,6 +25,7 @@ import {
   removeFromPlaylist,
   updateReview,
   type ApiGame,
+  type ApiReview,
 } from "@/lib/api";
 import { getStoredUser, getToken } from "@/lib/auth";
 
@@ -77,6 +79,11 @@ function toUiGameData(game: ApiGame | null, fallbackId: string) {
     platforms: ["PC", "CONSOLE"],
     rating: undefined,
     stats: { views: "-", lists: "-", likes: "-" },
+    timeToBeat: {
+      main: game.time_to_beat_main ?? null,
+      extras: game.time_to_beat_extras ?? null,
+      completionist: game.time_to_beat_completionist ?? null,
+    },
   };
 }
 
@@ -129,6 +136,10 @@ export default function GameDetailsPage() {
     message: string;
     tone: "success" | "warning" | "info";
   } | null>(null);
+
+  const [otherReviews, setOtherReviews] = useState<ApiReview[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+
   const isReviewed = rating > 0;
 
   useEffect(() => {
@@ -163,10 +174,11 @@ export default function GameDetailsPage() {
       try {
         setError(null);
 
-        const [favoriteEntries, playlistEntries, reviewEntries] = await Promise.all([
+        const [favoriteEntries, playlistEntries, reviewEntries, allGameReviews] = await Promise.all([
           getFavoriteEntries(sessionUser.id),
           getPlaylistEntries(sessionUser.id),
           getReviews({ userId: sessionUser.id, gameId }),
+          getReviews({ gameId }),
         ]);
 
         if (!active) {
@@ -189,6 +201,12 @@ export default function GameDetailsPage() {
           setReviewText("");
           setReviewUpdatedAt(null);
         }
+
+        // Filter out the current user's review from other reviews
+        const filtered = allGameReviews.filter(
+          (review) => review.user_id !== sessionUser.id,
+        );
+        setOtherReviews(filtered);
       } catch (err) {
         if (!active) {
           return;
@@ -469,6 +487,34 @@ export default function GameDetailsPage() {
                 ))}
               </div>
             </div>
+
+            {uiData.timeToBeat && (uiData.timeToBeat.main || uiData.timeToBeat.extras || uiData.timeToBeat.completionist) && (
+              <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-6 border-t border-abyss-800/20 sm:border-0 pt-4 sm:pt-0">
+                <span className="uppercase text-[10px] sm:text-xs tracking-[0.2em] font-bold text-muted-foreground sm:w-20 shrink-0 text-center xl:text-left text-azure-500/80">Time to Beat</span>
+                <div className="w-full max-w-xs">
+                  <div className="grid grid-cols-3 gap-2 bg-abyss-950/30 border border-abyss-800/50 rounded-lg overflow-hidden">
+                    {uiData.timeToBeat.main && (
+                      <div className="p-3 text-center border-r border-abyss-800/50 last:border-r-0">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Main</p>
+                        <p className="text-sm font-bold text-azure-400 mt-1">{uiData.timeToBeat.main}h</p>
+                      </div>
+                    )}
+                    {uiData.timeToBeat.extras && (
+                      <div className="p-3 text-center border-r border-abyss-800/50 last:border-r-0">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">+ Extras</p>
+                        <p className="text-sm font-bold text-azure-400 mt-1">{uiData.timeToBeat.extras}h</p>
+                      </div>
+                    )}
+                    {uiData.timeToBeat.completionist && (
+                      <div className="p-3 text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">100%</p>
+                        <p className="text-sm font-bold text-azure-400 mt-1">{uiData.timeToBeat.completionist}h</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -654,6 +700,56 @@ export default function GameDetailsPage() {
           )}
         </div>
       </main>
+
+      <section className="container mx-auto px-4 sm:px-6 py-16 border-t border-abyss-800/30">
+        <div className="flex justify-between items-baseline mb-8 border-b border-abyss-800/40 pb-3">
+          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
+            Community Reviews {otherReviews.length > 0 && `(${otherReviews.length})`}
+          </h2>
+        </div>
+
+        {otherReviews.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {otherReviews.map((review) => (
+              <div
+                key={`${review.user_id}-${review.id}`}
+                className="flex flex-col bg-abyss-900 border border-abyss-800 rounded-lg overflow-hidden hover:border-azure-500/50 hover:shadow-[0_0_15px_rgba(26,133,255,0.1)] transition-all duration-300"
+              >
+                <div className="p-5 flex flex-col h-full">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Avatar className="w-6 h-6 shrink-0">
+                          <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${review.username || `User${review.user_id}`}`} />
+                          <AvatarFallback className="text-[10px] font-bold">{review.username ? review.username.slice(0, 2).toUpperCase() : `U${review.user_id}`}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-semibold text-azure-50 line-clamp-1">{review.username || `User ${review.user_id}`}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {review.created_at || review.CreatedAt
+                          ? new Date(review.created_at || review.CreatedAt || "").toLocaleDateString()
+                          : "Recently"}
+                      </p>
+                    </div>
+                    <Badge className="bg-abyss-950 border border-abyss-700 flex gap-1 items-center text-abyss-50 shadow-sm shrink-0">
+                      <Star className="w-3 h-3 fill-azure-400 text-azure-400" /> {review.score}/10
+                    </Badge>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground leading-relaxed flex-1 mt-2">
+                    {review.text?.trim() || "No written review. Rating only."}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <MessageCircleMore className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground">No community reviews yet. Be the first to share your thoughts!</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

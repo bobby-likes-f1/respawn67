@@ -20,9 +20,12 @@ import "gorm.io/gorm"
 
 type Game struct {
 	gorm.Model
-	Title       string  `json:"title" gorm:"not null"`
-	Developer   *string `json:"developer,omitempty"`
-	ReleaseYear *int    `json:"release_year,omitempty"`
+	Title              string  `json:"title" gorm:"not null"`
+	Developer          *string `json:"developer,omitempty"`
+	ReleaseYear        *int    `json:"release_year,omitempty"`
+	TimeToBeatMain     *int    `json:"time_to_beat_main,omitempty"`
+	TimeToBeatExtras   *int    `json:"time_to_beat_extras,omitempty"`
+	TimeToBeatCompList *int    `json:"time_to_beat_completionist,omitempty"`
 }
 
 func (Game) TableName() string {

@@ -19,3 +19,4 @@ func addUserRoutes(rg *gin.RouterGroup) {
 		c.JSON(http.StatusOK, "users pictures")
 	})
 }
+
