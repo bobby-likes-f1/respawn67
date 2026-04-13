@@ -548,6 +548,7 @@ function ListCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const navigate = useNavigate();
   const coverImages = list.coverImages;
   const hasCovers = coverImages.length > 0;
 
@@ -612,13 +613,16 @@ function ListCard({
         <div className="flex items-center justify-between pt-2 border-t border-abyss-800">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <User className="w-3 h-3" />
-            <Link
-              to={`/users/${list.user_id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="hover:text-azure-400 transition-colors"
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(`/users/${list.user_id}`);
+              }}
+              className="hover:text-azure-400 transition-colors text-left"
             >
               {list.username || `User #${list.user_id}`}
-            </Link>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
