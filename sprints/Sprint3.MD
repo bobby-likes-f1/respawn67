@@ -1,9 +1,3 @@
-# Sprint 3 — Backend
-
-We focused on building the **Game Lists** feature (user-created, named collections of games — the Letterboxd "Lists" equivalent), a **Game Duration** system (how-long-to-beat data), and a series of data model improvements including foreign key constraints, expanded fields, and repository refactoring.
-
----
-
 ## Frontend
 
 We focused on expanding the platform with custom game lists, public user profiles, gameplay hours tracking, community reviews, and time-to-beat integration. We also added new reusable UI components, extended the API layer significantly, and updated the unit test suite to cover all new routes.
