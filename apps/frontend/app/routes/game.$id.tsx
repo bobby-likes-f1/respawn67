@@ -10,6 +10,7 @@ import {
   CircleCheckBig,
   CircleAlert,
   MessageCircleMore,
+  Clock,
 } from "lucide-react";
 import {
   addFavorite,
@@ -20,10 +21,13 @@ import {
   getGameById,
   getPlaylistEntries,
   getReviews,
+  getGameReviews,
   removeFavoriteByGame,
   removeFromPlaylist,
   updateReview,
+  getUserById,
   type ApiGame,
+  type ApiReview,
 } from "@/lib/api";
 import { getStoredUser, getToken } from "@/lib/auth";
 
@@ -70,7 +74,7 @@ export function toUiGameData(game: ApiGame | null, fallbackId: string) {
     year: game.release_year ? String(game.release_year) : "TBA",
     tagline: `${game.title.toUpperCase()} AWAITS.`,
     description:
-      "Discover this title on Respawn67. Add it to your playlist, favorite it, and leave your own review.",
+      game.description || "Discover this title on Respawn67. Add it to your playlist, favorite it, and leave your own review.",
     bannerImage: changeImageSize(game.cover_image_url, "720p") ?? FALLBACK_COVER,
     posterImage: changeImageSize(game.cover_image_url, "cover_big") ?? FALLBACK_COVER,
     genres: genres.length > 0 ? genres : ["ACTION"],
@@ -129,6 +133,8 @@ export default function GameDetailsPage() {
     message: string;
     tone: "success" | "warning" | "info";
   } | null>(null);
+  const [otherReviews, setOtherReviews] = useState<(ApiReview & { username?: string })[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const isReviewed = rating > 0;
 
   useEffect(() => {
@@ -201,6 +207,59 @@ export default function GameDetailsPage() {
       active = false;
     };
   }, [gameId, isAuthenticated, sessionUser?.id]);
+
+  // Fetch other user reviews
+  useEffect(() => {
+    if (Number.isNaN(gameId)) {
+      return;
+    }
+
+    let active = true;
+
+    (async () => {
+      try {
+        setReviewsLoading(true);
+        const allReviews = await getGameReviews(gameId);
+
+        if (!active) {
+          return;
+        }
+
+        // Filter out current user's review and enrich with usernames
+        const otherUserReviews = allReviews.filter(
+          (review) => !sessionUser || review.user_id !== sessionUser.id
+        );
+
+        // Fetch usernames for all reviews
+        const reviewsWithUsernames = await Promise.all(
+          otherUserReviews.map(async (review) => {
+            try {
+              const user = await getUserById(review.user_id);
+              return { ...review, username: user.username };
+            } catch {
+              return { ...review, username: `User ${review.user_id}` };
+            }
+          })
+        );
+
+        if (active) {
+          setOtherReviews(reviewsWithUsernames);
+        }
+      } catch (err) {
+        if (active) {
+          console.error("Failed to load other reviews:", err);
+        }
+      } finally {
+        if (active) {
+          setReviewsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [gameId, sessionUser?.id]);
 
   const interactionLabel = useMemo(() => {
     if (isSyncing) {
@@ -654,6 +713,87 @@ export default function GameDetailsPage() {
           )}
         </div>
       </main>
+
+      {/* Time to Beat Section */}
+      {loaderData.gameData?.duration && (
+        <section className="container mx-auto px-4 sm:px-6 py-12 border-t border-abyss-800/60">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-6 text-azure-50">Time to Beat</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {loaderData.gameData.duration.main_story_hours && (
+                <div className="bg-abyss-900 border border-abyss-700 rounded-lg p-6 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Clock className="w-5 h-5 text-azure-400" />
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Main Story</p>
+                  </div>
+                  <p className="text-3xl font-bold text-azure-50">{loaderData.gameData.duration.main_story_hours}h</p>
+                </div>
+              )}
+              {loaderData.gameData.duration.main_plus_sides_hours && (
+                <div className="bg-abyss-900 border border-abyss-700 rounded-lg p-6 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Clock className="w-5 h-5 text-azure-400" />
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Main + Extras</p>
+                  </div>
+                  <p className="text-3xl font-bold text-azure-50">{loaderData.gameData.duration.main_plus_sides_hours}h</p>
+                </div>
+              )}
+              {loaderData.gameData.duration.completionist_hours && (
+                <div className="bg-abyss-900 border border-abyss-700 rounded-lg p-6 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Clock className="w-5 h-5 text-azure-400" />
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Completionist</p>
+                  </div>
+                  <p className="text-3xl font-bold text-azure-50">{loaderData.gameData.duration.completionist_hours}h</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Community Reviews Section */}
+      {otherReviews.length > 0 && (
+        <section className="container mx-auto px-4 sm:px-6 py-12 border-t border-abyss-800/60">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-6 text-azure-50">Community Reviews</h2>
+            <div className="space-y-4">
+              {otherReviews.map((review) => (
+                <div
+                  key={`${review.user_id}-${review.game_id}`}
+                  className="bg-abyss-900 border border-abyss-800 rounded-lg p-4 hover:border-abyss-700 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="font-semibold text-azure-50">{review.username || `User ${review.user_id}`}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {review.updated_at || review.UpdatedAt || review.created_at || review.CreatedAt
+                          ? new Date(
+                              review.updated_at ||
+                                review.UpdatedAt ||
+                                review.created_at ||
+                                review.CreatedAt ||
+                                ""
+                            ).toLocaleDateString()
+                          : "Recently"}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="border-abyss-700 bg-abyss-950 text-azure-50 flex gap-1 items-center shrink-0">
+                      <Star className="w-3 h-3 fill-azure-400 text-azure-400" />
+                      {review.score}/10
+                    </Badge>
+                  </div>
+                  {review.text && (
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {review.text}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
