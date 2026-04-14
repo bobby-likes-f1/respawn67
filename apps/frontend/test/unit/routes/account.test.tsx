@@ -54,29 +54,26 @@ import AccountPage from "@/routes/account";
 describe("statusToProgress", () => {
   it("returns 100 for completed", () => expect(statusToProgress("completed")).toBe(100));
   it("returns 45 for playing", () => expect(statusToProgress("playing")).toBe(45));
-  it("returns 20 for abandoned", () => expect(statusToProgress("abandoned")).toBe(20));
   it("returns 0 for unknown", () => expect(statusToProgress("xyz")).toBe(0));
 });
 
 describe("normalizeBacklogStatus", () => {
   it("returns playing", () => expect(normalizeBacklogStatus("playing")).toBe("playing"));
   it("returns completed", () => expect(normalizeBacklogStatus("completed")).toBe("completed"));
-  it("returns abandoned", () => expect(normalizeBacklogStatus("abandoned")).toBe("abandoned"));
-  it("defaults to backlog", () => expect(normalizeBacklogStatus("random")).toBe("backlog"));
+  it("maps backlog to want_to_play", () => expect(normalizeBacklogStatus("backlog")).toBe("want_to_play"));
+  it("defaults to want_to_play", () => expect(normalizeBacklogStatus("random")).toBe("want_to_play"));
 });
 
 describe("toApiBacklogStatus", () => {
-  it("maps backlog to want_to_play", () => expect(toApiBacklogStatus("backlog")).toBe("want_to_play"));
+  it("passes through want_to_play", () => expect(toApiBacklogStatus("want_to_play")).toBe("want_to_play"));
   it("passes through playing", () => expect(toApiBacklogStatus("playing")).toBe("playing"));
   it("passes through completed", () => expect(toApiBacklogStatus("completed")).toBe("completed"));
-  it("passes through abandoned", () => expect(toApiBacklogStatus("abandoned")).toBe("abandoned"));
 });
 
 describe("formatBacklogStatus", () => {
-  it('formats backlog as "Backlog"', () => expect(formatBacklogStatus("backlog")).toBe("Backlog"));
-  it("capitalises playing", () => expect(formatBacklogStatus("playing")).toBe("Playing"));
-  it("capitalises completed", () => expect(formatBacklogStatus("completed")).toBe("Completed"));
-  it("capitalises abandoned", () => expect(formatBacklogStatus("abandoned")).toBe("Abandoned"));
+  it('formats want_to_play as "Up Next"', () => expect(formatBacklogStatus("want_to_play")).toBe("Up Next"));
+  it('formats playing as "Playing"', () => expect(formatBacklogStatus("playing")).toBe("Playing"));
+  it('formats completed as "Completed"', () => expect(formatBacklogStatus("completed")).toBe("Completed"));
 });
 
 describe("formatDate", () => {

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Star, Clock } from "lucide-react";
-import { getAllGames, type ApiGame } from "@/lib/api";
+import { getAllGames, getPublicReviews, getUserById, getGameById, type ApiGame, type ApiReview } from "@/lib/api";
 import type { Route } from "./+types/games";
 
 export function meta({}: Route.MetaArgs) {
@@ -35,18 +35,25 @@ export function changeImageSize(url: string | null | undefined, size: string): s
 export function transformGameData(game: ApiGame) {
   // keep these deterministic so ssr and client match
   const derivedRating = Number((8 + (game.id % 20) / 10).toFixed(1));
-  const derivedTimeToBeat = 12 + (game.id % 24);
+  
+  const mainHours = game.duration?.main_story_hours ?? game.time_to_beat_main ?? 0;
+  const extraHours = game.duration?.main_plus_sides_hours ?? game.time_to_beat_extra ?? 0;
+  const completeHours = game.duration?.completionist_hours ?? game.time_to_beat_complete ?? 0;
 
   return {
     id: game.id,
     title: game.title,
     rating: derivedRating,
     platform: game.developer ? [game.developer] : ["PC"],
-    timeToBeat: derivedTimeToBeat,
+    timeToBeat: mainHours,
+    timeToHover: {
+      main: mainHours,
+      extra: extraHours,
+      complete: completeHours,
+    },
     image: game.cover_image_url || "",
     spotlightImage: game.cover_image_url || "",
-    description:
-      "Discover this title on Respawn67. Add it to your playlist, favorite it, and leave your own review.",
+    description: game.description || "Discover this title on Respawn67. Add it to your playlist, favorite it, and leave your own review.",
   };
 }
 
@@ -249,6 +256,7 @@ export default function GamesPage() {
   const [games, setGames] = useState<ReturnType<typeof transformGameData>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recentReviews, setRecentReviews] = useState<(ApiReview & { username?: string, gameName?: string })[]>([]);
 
   const navigate = useNavigate();
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -278,6 +286,48 @@ export default function GamesPage() {
         if (active) {
           setIsLoading(false);
         }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Fetch recent reviews
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        const reviews = await getPublicReviews({});
+        const recent = reviews.slice(0, 4); // Limit to 4 most recent
+
+        // Enrich with usernames and game names
+        const enrichedReviews = await Promise.all(
+          recent.map(async (review) => {
+            let username = `User ${review.user_id}`;
+            let gameName = `Game ${review.game_id}`;
+            
+            try {
+              const user = await getUserById(review.user_id);
+              username = user.username;
+            } catch (e) { /* ignore */ }
+
+            try {
+              const game = await getGameById(review.game_id);
+              gameName = game.title;
+            } catch (e) { /* ignore */ }
+
+            return { ...review, username, gameName };
+          })
+        );
+
+        if (active) {
+          setRecentReviews(enrichedReviews);
+        }
+      } catch (e) {
+        console.error("Failed to load reviews:", e);
       }
     })();
 
@@ -606,54 +656,38 @@ export default function GamesPage() {
 
           {/* Popular reviews */}
           <section className="space-y-6">
-            <h3 className="text-2xl font-bold tracking-tight">User Reviews</h3>
+            <h3 className="text-2xl font-bold tracking-tight">Community Reviews</h3>
             <div className="space-y-4">
-              {[1].map((i) => (
-                <Card
-                  key={i}
-                  className="bg-gradient-to-br from-abyss-800 to-abyss-900 border border-abyss-700 shadow-md hover:border-azure-500/30 transition-colors"
-                >
-                  <CardHeader className="p-4">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-md">Hollow Knight</CardTitle>
-                      <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50">
+              {recentReviews.length > 0 ? (
+                recentReviews.map((review) => (
+                  <Link
+                    key={`${review.user_id}-${review.game_id}`}
+                    to={`/games/${review.game_id}`}
+                    className="block bg-abyss-900 border border-abyss-800 rounded-lg p-4 hover:border-azure-500/40 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <p className="font-semibold text-azure-50 text-sm">
+                          {review.username} <span className="text-muted-foreground">on</span> {review.gameName}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="border-abyss-700 bg-abyss-950 text-azure-50 flex gap-1 items-center shrink-0">
                         <Star className="w-3 h-3 fill-azure-400 text-azure-400" />
-                        6/10
+                        {review.score}/10
                       </Badge>
                     </div>
-                    <CardDescription>by @DeanBro</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <p className="text-sm italic text-muted-foreground line-clamp-3">
-                      "I would die every 10 seconds, if I wanted to struggle I
-                      would rather code something"
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-              {[1].map((i) => (
-                <Card
-                  key={i}
-                  className="bg-gradient-to-br from-abyss-800 to-abyss-900 border border-abyss-700 shadow-md hover:border-azure-500/30 transition-colors"
-                >
-                  <CardHeader className="p-4">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-md">Hollow Knight</CardTitle>
-                      <Badge className="bg-abyss-900/80 hover:bg-abyss-800 transition-colors border border-abyss-700 flex gap-1 items-center text-abyss-50">
-                        <Star className="w-3 h-3 fill-azure-400 text-azure-400" />
-                        10/10
-                      </Badge>
-                    </div>
-                    <CardDescription>by @BobbyTheMemeLord</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <p className="text-sm italic text-muted-foreground line-clamp-3">
-                      "DeanBro has a massive skill issue, this game is a
-                      masterpiece and I will fight anyone who says otherwise"
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    {review.text && (
+                      <p className="text-xs text-muted-foreground line-clamp-3">
+                        {review.text}
+                      </p>
+                    )}
+                  </Link>
+                ))
+              ) : (
+                <div className="bg-abyss-900 border border-abyss-800 rounded-lg p-4 text-center">
+                  <p className="text-sm text-muted-foreground">No recent reviews found.</p>
+                </div>
+              )}
             </div>
           </section>
         </div>

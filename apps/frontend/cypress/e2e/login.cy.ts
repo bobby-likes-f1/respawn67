@@ -1,3 +1,4 @@
+// Updated: April 13, 2026
 describe("Login Page", () => {
   beforeEach(() => {
     cy.visit("/login");

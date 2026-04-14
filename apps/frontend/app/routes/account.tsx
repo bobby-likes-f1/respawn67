@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,21 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Star,
   Settings,
   Link as LinkIcon,
@@ -21,7 +37,16 @@ import {
   Save,
   Trash2,
   X,
+  Plus,
+  MoreHorizontal,
+  Gamepad2,
+  ExternalLink,
+  PlayCircle,
+  ArrowRightCircle,
+  CheckCircle2,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
 import {
   getAllGames,
   getFavoriteGames,
@@ -31,10 +56,17 @@ import {
   deleteReview,
   removeFavoriteByGame,
   removeFromPlaylist,
-  updatePlaylistStatusByGame,
+  updatePlaylistEntryByGame,
   updateReview,
+  getUserLists,
+  getListGames,
+  createList,
+  updateList,
+  deleteList,
   type ApiGame,
   type ApiReview,
+  type ApiGameList,
+  type PlaylistEntry,
 } from "@/lib/api";
 import { getInitials, getMemberSinceLabel, getStoredUser, type AuthUser } from "@/lib/auth";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -53,17 +85,17 @@ type BacklogPreviewItem = {
   platform: string;
   status: BacklogStatus;
   progress: number;
+  hoursPlayed: number;
   hoursTotal: number;
   coverImageUrl: string | null;
 };
 
-type BacklogStatus = "backlog" | "playing" | "completed" | "abandoned";
+type BacklogStatus = "want_to_play" | "playing" | "completed";
 
-const MOCK_LISTS = [
-  { id: 1, title: "Top 10 Souls-likes", gameCount: 10, likes: 24, updated: "1 week ago" },
-  { id: 2, title: "Co-op Weekend", gameCount: 4, likes: 5, updated: "1 month ago" },
-  { id: 3, title: "Pile of Shame", gameCount: 42, likes: 1, updated: "2 months ago" },
-];
+type UserListItem = ApiGameList & {
+  gameCount: number;
+  coverImages: string[];
+};
 
 const FALLBACK_COVER =
   "https://images.igdb.com/igdb/image/upload/t_cover_big/co39at.webp";
@@ -71,25 +103,24 @@ const FALLBACK_COVER =
 export function statusToProgress(status: string) {
   if (status === "completed") return 100;
   if (status === "playing") return 45;
-  if (status === "abandoned") return 20;
   return 0;
 }
 
 export function normalizeBacklogStatus(status: string): BacklogStatus {
   if (status === "playing") return "playing";
   if (status === "completed") return "completed";
-  if (status === "abandoned") return "abandoned";
-  return "backlog";
+  if (status === "backlog") return "want_to_play";
+  return "want_to_play";
 }
 
 export function toApiBacklogStatus(status: BacklogStatus) {
-  if (status === "backlog") return "want_to_play";
   return status;
 }
 
 export function formatBacklogStatus(status: BacklogStatus) {
-  if (status === "backlog") return "Backlog";
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  if (status === "want_to_play") return "Up Next";
+  if (status === "playing") return "Playing";
+  return "Completed";
 }
 
 export function formatDate(value?: string) {
@@ -120,6 +151,7 @@ export function normalizeReviewScore(score: number) {
 
 export default function AccountPage() {
   const isAuthorized = useRequireAuth();
+  const navigate = useNavigate();
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
 
   const [favorites, setFavorites] = useState<ApiGame[]>([]);
@@ -137,6 +169,13 @@ export default function AccountPage() {
   const [busyReviewGameId, setBusyReviewGameId] = useState<number | null>(null);
   const [deletingReviewGameId, setDeletingReviewGameId] = useState<number | null>(null);
   const [busyBacklogGameId, setBusyBacklogGameId] = useState<number | null>(null);
+
+  const [userLists, setUserLists] = useState<UserListItem[]>([]);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
+  const [editingListItem, setEditingListItem] = useState<ApiGameList | null>(null);
+  const [listFormName, setListFormName] = useState("");
+  const [listFormDescription, setListFormDescription] = useState("");
+  const [isSavingList, setIsSavingList] = useState(false);
 
   useEffect(() => {
     setSessionUser(getStoredUser());
@@ -194,25 +233,55 @@ export default function AccountPage() {
           })),
         );
 
-        const statusByGameId = new Map<number, string>();
+        const entryByGameId = new Map<number, PlaylistEntry>();
         for (const entry of playlistEntries) {
-          statusByGameId.set(entry.game_id, entry.status);
+          entryByGameId.set(entry.game_id, entry);
         }
 
         const preview = playlistGames.map((game) => {
-          const status = normalizeBacklogStatus(statusByGameId.get(game.id) ?? "want_to_play");
+          const entry = entryByGameId.get(game.id);
+          const status = normalizeBacklogStatus(entry?.status ?? "want_to_play");
+          const baseProgress = statusToProgress(status);
+          const backendHours = entry?.hours_played && entry.hours_played > 0 ? entry.hours_played : 0;
+          const hoursTotal = 30; // Will be properly seeded eventually
+          const progress = backendHours > 0 ? Math.min(100, Math.round((backendHours / hoursTotal) * 100)) : baseProgress;
+
+          const hoursPlayed = backendHours > 0 ? backendHours : Math.round((hoursTotal * baseProgress) / 100);
+
           return {
             id: game.id,
             title: game.title,
             platform: game.genre ?? "Unknown",
             status,
-            progress: statusToProgress(status),
-            hoursTotal: 30,
+            progress,
+            hoursPlayed,
+            hoursTotal,
             coverImageUrl: game.cover_image_url ?? null,
           };
         });
 
         setBacklogPreview(preview);
+
+        try {
+          const lists = await getUserLists(user.id);
+          const enriched: UserListItem[] = await Promise.all(
+            lists.map(async (list) => {
+              try {
+                const games = await getListGames(list.id);
+                return {
+                  ...list,
+                  gameCount: games.length,
+                  coverImages: games.slice(0, 4).map((g) =>
+                    changeImageSize(g.cover_image_url, "cover_big"),
+                  ),
+                };
+              } catch {
+                return { ...list, gameCount: 0, coverImages: [] };
+              }
+            }),
+          );
+          if (active) setUserLists(enriched);
+        } catch {}
       } catch (err) {
         if (!active) {
           return;
@@ -416,19 +485,34 @@ export default function AccountPage() {
 
     const previous = backlogPreview;
     setBacklogPreview((current) =>
-      current.map((game) =>
-        game.id === gameId
-          ? {
-              ...game,
-              status: nextStatus,
-              progress: statusToProgress(nextStatus),
-            }
-          : game,
-      ),
+      current.map((game) => {
+        if (game.id !== gameId) return game;
+
+        let hoursPlayed = game.hoursPlayed;
+        if (nextStatus === "want_to_play") {
+          hoursPlayed = 0;
+        } else if (nextStatus === "completed") {
+          hoursPlayed = game.hoursTotal;
+        }
+
+        const progress = Math.min(100, Math.round((hoursPlayed / (game.hoursTotal || 1)) * 100));
+        return { ...game, status: nextStatus, hoursPlayed, progress };
+      }),
     );
 
+    const gameToUpdate = backlogPreview.find((g) => g.id === gameId);
+    let hoursToSend: number | undefined;
+    if (nextStatus === "want_to_play") {
+      hoursToSend = 0;
+    } else if (nextStatus === "completed" && gameToUpdate) {
+      hoursToSend = gameToUpdate.hoursTotal;
+    }
+
     try {
-      await updatePlaylistStatusByGame(user.id, gameId, toApiBacklogStatus(nextStatus));
+      await updatePlaylistEntryByGame(user.id, gameId, {
+        status: toApiBacklogStatus(nextStatus),
+        ...(hoursToSend !== undefined ? { hours_played: hoursToSend } : {}),
+      });
     } catch (err) {
       setBacklogPreview(previous);
       setError(err instanceof Error ? err.message : "Failed to update backlog item");
@@ -455,6 +539,50 @@ export default function AccountPage() {
     } catch (err) {
       setBacklogPreview(previous);
       setError(err instanceof Error ? err.message : "Failed to remove backlog item");
+    } finally {
+      setBusyBacklogGameId(null);
+    }
+  };
+
+  const handleBacklogUpdateHours = async (gameId: number, hoursPlayed: number) => {
+    const user = getStoredUser();
+    if (!user) {
+      setError("No user session found");
+      return;
+    }
+
+    setError(null);
+    setBusyBacklogGameId(gameId);
+
+    const previous = backlogPreview;
+    setBacklogPreview((current) =>
+      current.map((game) => {
+        if (game.id !== gameId) return game;
+
+        let status = game.status;
+        if (status === "want_to_play" && hoursPlayed > 0) status = "playing";
+        if (hoursPlayed >= game.hoursTotal && game.hoursTotal > 0) status = "completed";
+
+        const progress = Math.min(100, Math.round((hoursPlayed / (game.hoursTotal || 1)) * 100));
+        return { ...game, status, hoursPlayed, progress };
+      }),
+    );
+
+    const gameToUpdate = backlogPreview.find((g) => g.id === gameId);
+    if (!gameToUpdate) return;
+
+    let targetStatus: BacklogStatus = gameToUpdate.status;
+    if (targetStatus === "want_to_play" && hoursPlayed > 0) targetStatus = "playing";
+    if (hoursPlayed >= gameToUpdate.hoursTotal && gameToUpdate.hoursTotal > 0) targetStatus = "completed";
+
+    try {
+      await updatePlaylistEntryByGame(user.id, gameId, {
+        status: toApiBacklogStatus(targetStatus),
+        hours_played: hoursPlayed,
+      });
+    } catch (err) {
+      setBacklogPreview(previous);
+      setError(err instanceof Error ? err.message : "Failed to update logged hours");
     } finally {
       setBusyBacklogGameId(null);
     }
@@ -768,57 +896,16 @@ export default function AccountPage() {
               {backlogPreview.length > 0 ? (
                 <div className="flex flex-col gap-4">
                   {backlogPreview.map((game) => (
-                    <div key={game.id} className="flex flex-row items-center p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-800 rounded-lg">
-                      <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800">
-                        <img
-                          src={changeImageSize(game.coverImageUrl, "cover_big")}
-                          alt={game.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex flex-col flex-1 min-w-0 justify-center">
-                        <h4 className="font-bold text-lg truncate">{game.title}</h4>
-                        <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
-                          <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
-                          <span className="font-medium text-foreground/80 text-xs sm:text-sm">{formatBacklogStatus(game.status)}</span>
-                        </div>
-                      </div>
-                      <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Est. {game.hoursTotal}h</span>
-                          <span className="font-medium text-foreground">{game.progress}%</span>
-                        </div>
-                        <div className="h-2 w-full bg-abyss-950 rounded-full overflow-hidden border border-abyss-800">
-                          <div className="h-full bg-azure-500" style={{ width: `${game.progress}%` }} />
-                        </div>
-                      </div>
-                      <div className="flex min-w-[168px] flex-col gap-2">
-                        <Select
-                          value={game.status}
-                          onValueChange={(value) => handleBacklogStatusChange(game.id, value as BacklogStatus)}
-                          disabled={busyBacklogGameId === game.id}
-                        >
-                          <SelectTrigger className="border-abyss-700 bg-abyss-950/80">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="backlog">Backlog</SelectItem>
-                            <SelectItem value="playing">Playing</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="abandoned">Abandoned</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="gap-2 border-abyss-700 bg-transparent hover:bg-abyss-800"
-                          onClick={() => handleBacklogRemove(game.id)}
-                          disabled={busyBacklogGameId === game.id}
-                        >
-                          <Trash2 className="h-4 w-4" /> Remove
-                        </Button>
-                      </div>
-                    </div>
+                    <BacklogCardItem
+                      key={game.id}
+                      game={game}
+                      isBusy={busyBacklogGameId === game.id}
+                      onMarkPlaying={() => handleBacklogStatusChange(game.id, "playing")}
+                      onMoveToUpNext={() => handleBacklogStatusChange(game.id, "want_to_play")}
+                      onMarkCompleted={() => handleBacklogStatusChange(game.id, "completed")}
+                      onRemove={() => handleBacklogRemove(game.id)}
+                      onUpdateHours={(hours) => handleBacklogUpdateHours(game.id, hours)}
+                    />
                   ))}
                 </div>
               ) : (
@@ -828,30 +915,361 @@ export default function AccountPage() {
           </TabsContent>
 
           <TabsContent value="lists" className="mt-8 outline-none animate-in fade-in-50 duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {MOCK_LISTS.map((list) => (
-                <div key={list.id} className="relative group cursor-pointer mt-2">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-azure-600 to-azure-400 rounded-lg blur opacity-10 group-hover:opacity-30 transition duration-500"></div>
-                  <div className="relative bg-abyss-900 border border-abyss-800 rounded-lg p-5 flex flex-col gap-5 hover:bg-abyss-800/80 transition-all duration-300 ease-out shadow-lg">
-                    <div className="flex justify-between items-start">
-                      <div className="min-w-0 pr-4">
-                        <h4 className="font-bold text-lg text-azure-50 mb-1.5 truncate group-hover:text-azure-300 transition-colors duration-300">{list.title}</h4>
-                        <div className="flex items-center text-xs text-muted-foreground gap-3">
-                          <span className="flex items-center gap-1 font-medium"><LayoutGrid className="w-3 h-3 text-azure-500" /> {list.gameCount} Games</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-azure-500" /> {list.updated}</span>
+            <div className="flex justify-between items-baseline mb-6 border-b border-border/40 pb-2">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">My Lists</h3>
+              <Button
+                size="sm"
+                className="gap-2 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400 border border-azure-400/50 shadow-[0_0_15px_rgba(26,133,255,0.4)] text-white"
+                onClick={() => {
+                  setEditingListItem(null);
+                  setListFormName("");
+                  setListFormDescription("");
+                  setListDialogOpen(true);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" /> New List
+              </Button>
+            </div>
+            {userLists.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {userLists.map((list) => (
+                  <Link
+                    key={list.id}
+                    to={`/lists/${list.id}`}
+                    className="group relative flex flex-col bg-abyss-900 border border-abyss-700 hover:border-azure-500/50 hover:shadow-[0_0_20px_rgba(26,133,255,0.12)] rounded-xl overflow-hidden transition-all duration-300"
+                  >
+                    <div className="relative h-32 bg-abyss-950 overflow-hidden shrink-0">
+                      {list.coverImages.length > 0 ? (
+                        <div
+                          className={`grid h-full w-full ${
+                            list.coverImages.length === 1
+                              ? "grid-cols-1"
+                              : list.coverImages.length === 2
+                                ? "grid-cols-2"
+                                : list.coverImages.length === 3
+                                  ? "grid-cols-3"
+                                  : "grid-cols-2 grid-rows-2"
+                          }`}
+                        >
+                          {list.coverImages.slice(0, 4).map((src, i) => (
+                            <img
+                              key={i}
+                              src={src}
+                              alt=""
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          ))}
                         </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <LayoutGrid className="w-8 h-8 text-abyss-700" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-abyss-900 via-transparent to-transparent opacity-80" />
+                      <div className="absolute top-2 right-2">
+                        <Badge className="bg-abyss-900/80 border border-abyss-700 flex gap-1 items-center text-abyss-50 text-xs shadow-sm">
+                          <Gamepad2 className="w-3 h-3 text-azure-400" />
+                          {list.gameCount}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-[10px] py-0 h-5 bg-abyss-950 border-abyss-700 text-muted-foreground shrink-0">
-                        ♥ {list.likes}
-                      </Badge>
                     </div>
+
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex justify-between items-start flex-1 w-full min-w-0">
+                        <div className="min-w-0 pr-4 flex-1">
+                          <h4 className="font-bold text-lg text-azure-50 mb-1 truncate group-hover:text-azure-300 transition-colors duration-300">
+                            {list.name}
+                          </h4>
+                          {list.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                              {list.description}
+                            </p>
+                          )}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              className="p-1.5 -mr-1.5 -mt-1 rounded-md hover:bg-abyss-800 transition-colors text-muted-foreground shrink-0"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40 border-abyss-700 bg-abyss-900">
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer focus:bg-abyss-800"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                navigate(`/lists/${list.id}`);
+                              }}
+                            >
+                              <ExternalLink className="w-4 h-4 text-azure-400" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer focus:bg-abyss-800"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setEditingListItem(list);
+                                setListFormName(list.name);
+                                setListFormDescription(list.description || "");
+                                setListDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-abyss-800" />
+                            <DropdownMenuItem
+                              className="gap-2 text-destructive cursor-pointer focus:bg-destructive/10 focus:text-destructive"
+                              onSelect={async (e) => {
+                                e.preventDefault();
+                                if (!sessionUser) return;
+                                try {
+                                  await deleteList(sessionUser.id, list.id);
+                                  setUserLists((prev) =>
+                                    prev.filter((l) => l.id !== list.id),
+                                  );
+                                } catch (err) {
+                                  setError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to delete list",
+                                  );
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-muted/20 rounded-xl border border-dashed">
+                <LayoutGrid className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No lists yet. Create one to curate your favorite games!</p>
+              </div>
+            )}
+
+            <Dialog open={listDialogOpen} onOpenChange={setListDialogOpen}>
+              <DialogContent className="bg-abyss-900 border-abyss-700 sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>{editingListItem ? "Edit List" : "Create New List"}</DialogTitle>
+                  <DialogDescription>
+                    {editingListItem ? "Update your list details." : "Give your list a name and optional description."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground font-medium">Name</label>
+                    <Input
+                      value={listFormName}
+                      onChange={(e) => setListFormName(e.target.value)}
+                      placeholder="e.g. Top 10 RPGs"
+                      className="border-abyss-700 bg-abyss-950/70"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground font-medium">Description</label>
+                    <textarea
+                      value={listFormDescription}
+                      onChange={(e) => setListFormDescription(e.target.value)}
+                      placeholder="What's this list about?"
+                      rows={3}
+                      className="w-full rounded-md border border-abyss-700 bg-abyss-950/70 px-3 py-2 text-sm text-foreground outline-none transition focus:border-azure-500 resize-none"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setListDialogOpen(false)} className="border-abyss-700">
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!sessionUser || !listFormName.trim()) return;
+                      setIsSavingList(true);
+                      setError(null);
+                      try {
+                        if (editingListItem) {
+                          const updated = await updateList(sessionUser.id, editingListItem.id, {
+                            name: listFormName.trim(),
+                            description: listFormDescription.trim() || undefined,
+                          });
+                          setUserLists((prev) => prev.map((l) => l.id === updated.id ? { ...updated, gameCount: l.gameCount, coverImages: l.coverImages } : l));
+                        } else {
+                          const created = await createList(sessionUser.id, {
+                            name: listFormName.trim(),
+                            description: listFormDescription.trim() || undefined,
+                          });
+                          setUserLists((prev) => [{ ...created, gameCount: 0, coverImages: [] }, ...prev]);
+                        }
+                        setListDialogOpen(false);
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Failed to save list");
+                      } finally {
+                        setIsSavingList(false);
+                      }
+                    }}
+                    disabled={!listFormName.trim() || isSavingList}
+                    className="bg-azure-600 hover:bg-azure-500 text-white"
+                  >
+                    {isSavingList ? "Saving..." : editingListItem ? "Update" : "Create"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </main>
     </div>
+  );
+}
+
+function BacklogCardItem({
+  game,
+  isBusy,
+  onMarkPlaying,
+  onMoveToUpNext,
+  onMarkCompleted,
+  onRemove,
+  onUpdateHours,
+}: {
+  game: BacklogPreviewItem;
+  isBusy: boolean;
+  onMarkPlaying: () => void;
+  onMoveToUpNext: () => void;
+  onMarkCompleted: () => void;
+  onRemove: () => void;
+  onUpdateHours: (hours: number) => void;
+}) {
+  const [isLogHoursOpen, setIsLogHoursOpen] = useState(false);
+  const [draftHours, setDraftHours] = useState(game.hoursPlayed);
+
+  useEffect(() => {
+    if (!isLogHoursOpen) {
+      setDraftHours(game.hoursPlayed);
+    }
+  }, [game.hoursPlayed, isLogHoursOpen]);
+
+  const handleOpenLogHours = () => {
+    setIsLogHoursOpen(true);
+  };
+
+  const handleSaveHours = () => {
+    onUpdateHours(draftHours);
+    setIsLogHoursOpen(false);
+  };
+
+  return (
+    <>
+      <div className="flex flex-row items-center p-4 gap-4 sm:gap-6 bg-abyss-900 border border-abyss-800 rounded-lg">
+        <div className="w-16 h-24 rounded-md overflow-hidden shrink-0 border border-abyss-700 shadow-sm bg-abyss-800">
+          <img
+            src={changeImageSize(game.coverImageUrl, "cover_big")}
+            alt={game.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex flex-col flex-1 min-w-0 justify-center">
+          <h4 className="font-bold text-lg truncate">{game.title}</h4>
+          <div className="flex items-center gap-2 sm:gap-3 text-sm text-muted-foreground mt-1.5">
+            <Badge variant="outline" className="text-[10px] py-0 bg-background border-abyss-700">{game.platform}</Badge>
+            <span className="font-medium text-foreground/80 text-xs sm:text-sm">{formatBacklogStatus(game.status)}</span>
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3 text-azure-500" />
+              <span className="text-xs font-bold text-foreground">{game.hoursPlayed}h</span>
+            </div>
+          </div>
+        </div>
+        <div className="hidden md:flex flex-col w-48 shrink-0 gap-1.5 px-4">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Est. {game.hoursTotal}h</span>
+            <span className="font-medium text-foreground">{game.progress}%</span>
+          </div>
+          <Progress value={game.progress} className="h-2" />
+        </div>
+        <div className="shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isBusy}>
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem className="gap-2" onSelect={onMarkPlaying}>
+                <PlayCircle className="w-4 h-4" /> Mark as Playing
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={handleOpenLogHours}>
+                <Clock className="w-4 h-4" /> Log Hours Played
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={onMoveToUpNext}>
+                <ArrowRightCircle className="w-4 h-4" /> Move to Up Next
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={onMarkCompleted}>
+                <CheckCircle2 className="w-4 h-4" /> Mark as Completed
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                onSelect={onRemove}
+              >
+                <Trash2 className="w-4 h-4" /> Remove from Backlog
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <Dialog open={isLogHoursOpen} onOpenChange={setIsLogHoursOpen}>
+        <DialogContent className="sm:max-w-[450px] bg-abyss-950 border-abyss-800">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-black tracking-tighter">LOG HOURS</DialogTitle>
+            <DialogDescription>
+              Update your progress for <span className="text-foreground font-bold">{game.title}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-8 pt-4">
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">New Total</span>
+                  <span className="text-3xl font-black text-azure-500 tracking-tighter">{draftHours}h</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Current</span>
+                  <span className="text-xl font-bold opacity-50">{game.hoursPlayed}h</span>
+                </div>
+              </div>
+              <div className="relative px-2 py-4 bg-abyss-900/50 border border-abyss-800 rounded-xl">
+                <Slider
+                  value={[draftHours]}
+                  max={Math.max(game.hoursTotal, game.hoursPlayed) * 1.5}
+                  step={1}
+                  onValueChange={(vals) => setDraftHours(vals[0])}
+                  className="py-4"
+                />
+              </div>
+              <div className="bg-azure-500/5 border border-azure-500/10 p-4 rounded-xl space-y-2">
+                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-azure-500">
+                  <span>Projected Completion</span>
+                  <span>{Math.min(100, Math.round((draftHours / game.hoursTotal) * 100))}%</span>
+                </div>
+                <Progress value={(draftHours / (game.hoursTotal || 1)) * 100} className="h-2" />
+              </div>
+            </div>
+            <DialogFooter className="pt-4 border-t border-abyss-800">
+              <Button variant="ghost" onClick={() => setIsLogHoursOpen(false)} className="font-bold uppercase tracking-widest text-[10px]">Discard</Button>
+              <Button onClick={handleSaveHours} className="bg-azure-600 hover:bg-azure-500 text-white font-black uppercase tracking-widest text-[10px] px-8">Confirm Log</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
