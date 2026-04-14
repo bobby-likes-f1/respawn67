@@ -47,7 +47,7 @@ func TestReviewsRepository_GetReviewByID(t *testing.T) {
 
 	created, _ := repo.CreateReview(models.Review{UserID: 1, GameID: 1, Score: 8, Text: strPtr("great")})
 
-	found, err := repo.GetReviewByID(created.UserID)
+	found, err := repo.GetReviewByID(created.ID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
