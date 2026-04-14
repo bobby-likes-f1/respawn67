@@ -30,4 +30,5 @@ func getRoutes() {
 	addPlaylistRoutes(v1)
 	addFavoritesRoutes(v1)
 	addReviewRoutes(v1)
+	addGameListRoutes(v1)
 }

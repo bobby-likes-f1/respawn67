@@ -24,6 +24,9 @@ func setupTestDB() *gorm.DB {
 		&models.Playlist{},
 		&models.Favorite{},
 		&models.Review{},
+		&models.GameList{},
+		&models.GameListItem{},
+		&models.GameDuration{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate test database:", err)
@@ -35,8 +38,4 @@ func setupTestDB() *gorm.DB {
 // helper functions for creating test data
 func strPtr(s string) *string {
 	return &s
-}
-
-func int16Ptr(i int16) *int16 {
-	return &i
 }

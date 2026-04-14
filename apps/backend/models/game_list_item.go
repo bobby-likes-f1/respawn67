@@ -6,16 +6,17 @@ import (
 	"gorm.io/gorm"
 )
 
-type Favorite struct {
+type GameListItem struct {
 	gorm.Model `json:"-"`
-	UserID     uint      `json:"user_id" gorm:"not null"`
-	User       User      `json:"-"       gorm:"foreignKey:UserID"`
+	ID         uint      `json:"id"`
+	ListID     uint      `json:"list_id" gorm:"not null"`
+	List       GameList  `json:"-"       gorm:"foreignKey:ListID"`
 	GameID     uint      `json:"game_id" gorm:"not null"`
 	Game       Game      `json:"-"       gorm:"foreignKey:GameID"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
-func (Favorite) TableName() string {
-	return "favorites"
+func (GameListItem) TableName() string {
+	return "game_list_items"
 }

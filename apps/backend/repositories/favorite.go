@@ -47,9 +47,10 @@ func (r *FavoritesRepository) FindByUserAndGame(userID uint, gameID uint) (model
 
 func (r *FavoritesRepository) GetGamesByUserID(userID uint) ([]models.Game, error) {
 	var games []models.Game
-	result := r.db.Raw(
-		"SELECT games.* FROM games INNER JOIN favorites ON favorites.game_id = games.id WHERE favorites.user_id = ? AND favorites.deleted_at IS NULL AND games.deleted_at IS NULL",
-		userID,
-	).Scan(&games)
+	result := r.db.
+		Preload("Duration").
+		Joins("INNER JOIN favorites ON favorites.game_id = games.id").
+		Where("favorites.user_id = ?", userID).
+		Find(&games)
 	return games, result.Error
 }
