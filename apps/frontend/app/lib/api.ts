@@ -24,6 +24,15 @@ export type ApiGame = {
   developer?: string | null;
   release_year?: number | null;
   cover_image_url?: string | null;
+  description?: string | null;
+  duration?: {
+    main_story_hours?: number;
+    main_plus_sides_hours?: number;
+    completionist_hours?: number;
+  } | null;
+  time_to_beat_main?: number | null;
+  time_to_beat_extra?: number | null;
+  time_to_beat_complete?: number | null;
 };
 
 export type PlaylistEntry = {
@@ -144,10 +153,29 @@ export function getPublicReviews(filters: { userId?: number; gameId?: number }) 
   return apiRequest<ApiReview[]>(path).then((result) => result || []);
 }
 
+export function getGameReviews(gameId: number) {
+  return getPublicReviews({ gameId });
+}
+
 export function getGameById(gameId: number | string) {
   return apiRequest<ApiGame>(`/games/${gameId}`).catch((err) => {
     console.error(`[API] Failed to fetch game ${gameId}:`, err);
     throw err;
+  });
+}
+
+export function setGameDuration(
+  gameId: number,
+  data: {
+    main_story_hours: number;
+    main_plus_sides_hours: number;
+    completionist_hours: number;
+  },
+) {
+  return apiRequest<ApiGame>(`/games/${gameId}/duration`, {
+    method: "POST",
+    body: JSON.stringify(data),
+    auth: true,
   });
 }
 
