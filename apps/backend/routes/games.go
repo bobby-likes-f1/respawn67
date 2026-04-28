@@ -29,6 +29,8 @@ func GetGamesRouter() *GamesRouter {
 
 func addGameRoutes(rg *gin.RouterGroup) {
 	router := GetGamesRouter()
+	guidesRouter := GetGuidesRouter()
+	communityRouter := GetCommunityRouter()
 
 	gamesRoutes := rg.Group("/games")
 
@@ -40,7 +42,7 @@ func addGameRoutes(rg *gin.RouterGroup) {
 	gamesRoutes.PUT("/:id/duration", router.UpsertDuration)
 	gamesRoutes.DELETE("/:id/duration", router.DeleteDuration)
 
-	// Sprint 4 — game-scoped routes
+	// Sprint 4 - game-scoped routes
 	gamesRoutes.GET("/:id/guides", guidesRouter.GetByGameID)
 	gamesRoutes.POST("/:id/guides", guidesRouter.Create)
 	gamesRoutes.PUT("/:id/guides/:guideId", guidesRouter.Update)
