@@ -18,26 +18,19 @@ import {
   LayoutGrid,
   Gamepad2,
   Clock,
-  BookOpen,
-  FileText,
-  PenLine,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
-  getAllArticles,
   getUserById,
   getAllGames,
   getFavoriteGames,
-  getGameGuides,
   getPlaylistEntries,
   getPlaylistGames,
   getPublicReviews,
   getPublicUserLists,
   getListGames,
-  type ApiArticle,
   type ApiUser,
   type ApiGame,
-  type ApiGuide,
   type ApiReview,
   type ApiGameList,
   type PlaylistEntry,
@@ -106,11 +99,6 @@ type ReviewCard = {
   coverImageUrl: string | null;
 };
 
-type UserGuideCard = ApiGuide & {
-  gameTitle: string;
-  gameCoverImageUrl: string | null;
-};
-
 export default function PublicProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -122,8 +110,6 @@ export default function PublicProfilePage() {
   const [reviews, setReviews] = useState<ReviewCard[]>([]);
   const [backlogPreview, setBacklogPreview] = useState<BacklogPreviewItem[]>([]);
   const [userLists, setUserLists] = useState<UserListItem[]>([]);
-  const [articles, setArticles] = useState<ApiArticle[]>([]);
-  const [guides, setGuides] = useState<UserGuideCard[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +140,7 @@ export default function PublicProfilePage() {
         if (!active) return;
         setProfileUser(user);
 
-        const [favoriteGames, userReviews, playlistEntries, playlistGames, allGames, lists, allArticles] =
+        const [favoriteGames, userReviews, playlistEntries, playlistGames, allGames, lists] =
           await Promise.all([
             getFavoriteGames(user.id),
             getPublicReviews({ userId: user.id }),
@@ -162,7 +148,6 @@ export default function PublicProfilePage() {
             getPlaylistGames(user.id).catch(() => []),
             getAllGames(),
             getPublicUserLists(user.id),
-            getAllArticles().catch(() => []),
           ]);
 
         if (!active) return;
@@ -176,43 +161,6 @@ export default function PublicProfilePage() {
           titleMap[game.id] = game.title;
           coverMap[game.id] = game.cover_image_url ?? null;
         }
-
-        setArticles(
-          allArticles
-            .filter((article) => article.user_id === user.id)
-            .sort((a, b) => {
-              const aTime = new Date(a.updated_at ?? a.UpdatedAt ?? a.created_at ?? a.CreatedAt ?? 0).getTime();
-              const bTime = new Date(b.updated_at ?? b.UpdatedAt ?? b.created_at ?? b.CreatedAt ?? 0).getTime();
-              return bTime - aTime;
-            }),
-        );
-
-        const guideGroups = await Promise.all(
-          allGames.map(async (game) => {
-            try {
-              const gameGuides = await getGameGuides(game.id);
-              return gameGuides
-                .filter((guide) => guide.user_id === user.id)
-                .map((guide) => ({
-                  ...guide,
-                  gameTitle: game.title,
-                  gameCoverImageUrl: game.cover_image_url ?? null,
-                }));
-            } catch {
-              return [] as UserGuideCard[];
-            }
-          }),
-        );
-        if (!active) return;
-        setGuides(
-          guideGroups
-            .flat()
-            .sort((a, b) => {
-              const aTime = new Date(a.updated_at ?? a.UpdatedAt ?? a.created_at ?? a.CreatedAt ?? 0).getTime();
-              const bTime = new Date(b.updated_at ?? b.UpdatedAt ?? b.created_at ?? b.CreatedAt ?? 0).getTime();
-              return bTime - aTime;
-            }),
-        );
 
         // map reviews
         setReviews(
@@ -314,8 +262,8 @@ export default function PublicProfilePage() {
   const stats = {
     games: backlogPreview.length,
     reviews: reviews.length,
-    articles: articles.length,
-    guides: guides.length,
+    following: 0,
+    followers: 0,
   };
 
   const recentActivity = reviews.slice(0, 4);
@@ -377,12 +325,12 @@ export default function PublicProfilePage() {
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Reviews</span>
             </div>
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{stats.articles}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Articles</span>
+              <span className="text-2xl font-bold">{stats.following}</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Following</span>
             </div>
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{stats.guides}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Guides</span>
+              <span className="text-2xl font-bold">{stats.followers}</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Followers</span>
             </div>
           </div>
         </div>
@@ -392,7 +340,6 @@ export default function PublicProfilePage() {
             <TabsList className="bg-muted/50 p-1 flex w-full h-auto">
               <TabsTrigger value="profile" className="flex-1 text-sm sm:text-base py-2">Profile</TabsTrigger>
               <TabsTrigger value="reviews" className="flex-1 text-sm sm:text-base py-2">Reviews</TabsTrigger>
-              <TabsTrigger value="writing" className="flex-1 text-sm sm:text-base py-2">Writing</TabsTrigger>
               <TabsTrigger value="backlog" className="flex-1 text-sm sm:text-base py-2">Backlog</TabsTrigger>
               <TabsTrigger value="lists" className="flex-1 text-sm sm:text-base py-2">Lists</TabsTrigger>
             </TabsList>
@@ -451,55 +398,6 @@ export default function PublicProfilePage() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">No recent review activity.</p>
-                  )}
-                </section>
-
-                <section>
-                  <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-4">
-                    <h3 className="text-sm font-medium text-white uppercase tracking-wider">Community Writing</h3>
-                    <span className="text-xs text-muted-foreground">Articles and guides</span>
-                  </div>
-                  {articles.length > 0 || guides.length > 0 ? (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {articles.slice(0, 2).map((article) => (
-                        <Link
-                          key={`article-${article.id}`}
-                          to={`/articles/${article.id}`}
-                          className="group rounded-lg border border-abyss-800 bg-abyss-900/60 p-4 transition hover:border-azure-500/60 hover:bg-abyss-900"
-                        >
-                          <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
-                            <FileText className="h-3.5 w-3.5" />
-                            Article
-                          </div>
-                          <h4 className="line-clamp-2 text-base font-bold text-azure-50 transition group-hover:text-azure-200">
-                            {article.title}
-                          </h4>
-                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                            {article.content}
-                          </p>
-                        </Link>
-                      ))}
-                      {guides.slice(0, 2).map((guide) => (
-                        <Link
-                          key={`guide-${guide.game_id}-${guide.id}`}
-                          to={`/games/${guide.game_id}/community/guides/${guide.id}`}
-                          className="group rounded-lg border border-abyss-800 bg-abyss-900/60 p-4 transition hover:border-azure-500/60 hover:bg-abyss-900"
-                        >
-                          <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
-                            <BookOpen className="h-3.5 w-3.5" />
-                            Guide
-                          </div>
-                          <h4 className="line-clamp-2 text-base font-bold text-azure-50 transition group-hover:text-azure-200">
-                            {guide.title}
-                          </h4>
-                          <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                            {guide.gameTitle}
-                          </p>
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No articles or guides published yet.</p>
                   )}
                 </section>
               </div>
@@ -576,79 +474,6 @@ export default function PublicProfilePage() {
             ) : (
               <p className="text-sm text-muted-foreground">No reviews posted yet.</p>
             )}
-          </TabsContent>
-
-          <TabsContent value="writing" className="mt-8 outline-none animate-in fade-in-50 duration-500">
-            <div className="grid gap-8 lg:grid-cols-2">
-              <section>
-                <div className="mb-5 flex items-center justify-between border-b border-border/40 pb-2">
-                  <h3 className="text-sm font-medium text-white uppercase tracking-wider">Articles</h3>
-                  <span className="text-xs font-bold text-azure-400">{articles.length}</span>
-                </div>
-                {articles.length > 0 ? (
-                  <div className="space-y-3">
-                    {articles.map((article) => (
-                      <Link
-                        key={article.id}
-                        to={`/articles/${article.id}`}
-                        className="group block rounded-lg border border-abyss-800 bg-abyss-900/70 p-4 transition hover:border-azure-500/60 hover:bg-abyss-900"
-                      >
-                        <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
-                          <FileText className="h-3.5 w-3.5" />
-                          {formatDate(article.created_at ?? article.CreatedAt)}
-                        </div>
-                        <h4 className="text-lg font-bold text-azure-50 transition group-hover:text-azure-200">
-                          {article.title}
-                        </h4>
-                        <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                          {article.content}
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No articles yet.</p>
-                )}
-              </section>
-
-              <section>
-                <div className="mb-5 flex items-center justify-between border-b border-border/40 pb-2">
-                  <h3 className="text-sm font-medium text-white uppercase tracking-wider">Guides</h3>
-                  <span className="text-xs font-bold text-azure-400">{guides.length}</span>
-                </div>
-                {guides.length > 0 ? (
-                  <div className="space-y-3">
-                    {guides.map((guide) => (
-                      <Link
-                        key={`${guide.game_id}-${guide.id}`}
-                        to={`/games/${guide.game_id}/community/guides/${guide.id}`}
-                        className="group grid grid-cols-[64px_1fr] gap-4 rounded-lg border border-abyss-800 bg-abyss-900/70 p-3 transition hover:border-azure-500/60 hover:bg-abyss-900"
-                      >
-                        <img
-                          src={changeImageSize(guide.gameCoverImageUrl, "cover_big")}
-                          alt={`${guide.gameTitle} cover`}
-                          className="aspect-[3/4] w-16 rounded-md border border-abyss-700 object-cover"
-                        />
-                        <div className="min-w-0 py-1">
-                          <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
-                            <BookOpen className="h-3.5 w-3.5" />
-                            {guide.gameTitle}
-                          </div>
-                          <h4 className="line-clamp-2 text-base font-bold text-azure-50 transition group-hover:text-azure-200">
-                            {guide.title}
-                          </h4>
-                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                            {guide.content}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No guides yet.</p>
-                )}
-              </section>
-            </div>
           </TabsContent>
 
           <TabsContent value="backlog" className="mt-8 outline-none animate-in fade-in-50 duration-500">

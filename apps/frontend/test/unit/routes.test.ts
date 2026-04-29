@@ -23,30 +23,8 @@ describe("routes", () => {
     expect(routes.some((r: any) => r.path === "games")).toBe(true);
   });
 
-  it("includes community route", () => {
-    expect(routes.some((r: any) => r.path === "community")).toBe(true);
-  });
-
-  it("includes article detail route", () => {
-    expect(routes.some((r: any) => r.path === "articles/:id")).toBe(true);
-  });
-
   it("includes game/:id route", () => {
     expect(routes.some((r: any) => r.path === "games/:id")).toBe(true);
-  });
-
-  it("includes game/:id/community route", () => {
-    expect(routes.some((r: any) => r.path === "games/:id/community")).toBe(true);
-  });
-
-  it("includes guide detail/edit/create routes", () => {
-    expect(routes.some((r: any) => r.path === "games/:id/community/guides/new")).toBe(true);
-    expect(routes.some((r: any) => r.path === "games/:id/community/guides/:guideId")).toBe(true);
-    expect(routes.some((r: any) => r.path === "games/:id/community/guides/:guideId/edit")).toBe(true);
-  });
-
-  it("includes review detail route", () => {
-    expect(routes.some((r: any) => r.path === "games/:gameId/reviews/:userId")).toBe(true);
   });
 
   it("includes account route", () => {

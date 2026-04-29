@@ -37,22 +37,15 @@ vi.mock("@/lib/use-require-auth", () => ({
 }));
 
 vi.mock("@/lib/api", () => ({
-  getAllArticles: vi.fn(async () => []),
   getFavoriteGames: vi.fn(async () => []),
   getReviews: vi.fn(async () => []),
   getPlaylistEntries: vi.fn(async () => []),
   getPlaylistGames: vi.fn(async () => []),
   getAllGames: vi.fn(async () => []),
-  getGameGuides: vi.fn(async () => []),
-  getUserLists: vi.fn(async () => []),
-  getListGames: vi.fn(async () => []),
-  createList: vi.fn(),
-  updateList: vi.fn(),
-  deleteList: vi.fn(),
   deleteReview: vi.fn(),
   removeFavoriteByGame: vi.fn(),
   removeFromPlaylist: vi.fn(),
-  updatePlaylistEntryByGame: vi.fn(),
+  updatePlaylistStatusByGame: vi.fn(),
   updateReview: vi.fn(),
 }));
 
@@ -150,7 +143,6 @@ describe("AccountPage", () => {
     render(<AccountPage />);
     expect(await screen.findByRole("tab", { name: /Profile/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Reviews/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Writing/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Backlog/i })).toBeInTheDocument();
   });
 
