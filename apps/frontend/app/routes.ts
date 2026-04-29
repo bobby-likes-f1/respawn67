@@ -26,4 +26,8 @@ export default [
   route("users/:id", "routes/user.$id.tsx"),
   route("lists", "routes/lists.tsx"),
   route("lists/:id", "routes/list.$id.tsx"),
+  route("articles", "routes/articles.tsx"),
+  route("articles/write", "routes/articles.write.tsx"),
+  route("articles/:id", "routes/articles.$id.tsx"),
+  route("articles/:id/edit", "routes/articles.edit.$id.tsx"),
 ] satisfies RouteConfig;
