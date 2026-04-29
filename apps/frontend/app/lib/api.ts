@@ -90,6 +90,10 @@ export type ApiGuide = {
 export type ApiArticle = {
   id: number;
   user_id: number;
+  user?: {
+    id: number;
+    username: string;
+  };
   title: string;
   content: string;
   created_at?: string;
@@ -255,15 +259,45 @@ export function getAllArticles() {
 }
 
 export async function getArticleById(articleId: number | string) {
-  const articles = await getAllArticles();
-  const normalizedId = Number(articleId);
-  const article = articles.find((entry) => entry.id === normalizedId);
+  try {
+    return await apiRequest<ApiArticle>(`/articles/${articleId}`);
+  } catch {
+    const articles = await getAllArticles();
+    const normalizedId = Number(articleId);
+    const article = articles.find((entry) => entry.id === normalizedId);
 
-  if (!article) {
-    throw new Error("Article not found");
+    if (!article) {
+      throw new Error("Article not found");
+    }
+
+    return article;
   }
+}
 
-  return article;
+export function createArticle(payload: { title: string; content: string }) {
+  return apiRequest<ApiArticle>("/articles/", {
+    method: "POST",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function updateArticle(
+  articleId: number | string,
+  payload: { title: string; content: string },
+) {
+  return apiRequest<ApiArticle>(`/articles/${articleId}`, {
+    method: "PUT",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function deleteArticle(articleId: number | string) {
+  return apiRequest<{ message: string }>(`/articles/${articleId}`, {
+    method: "DELETE",
+    auth: true,
+  });
 }
 
 export function setGameDuration(

@@ -33,7 +33,7 @@ export function meta() {
     { title: "Community | Respawn67" },
     {
       name: "description",
-      content: "Browse articles, active game hubs, reviews, and lists from the Respawn67 community.",
+      content: "Explore articles, active game hubs, reviews, and lists from the Respawn67 community.",
     },
   ];
 }
@@ -153,7 +153,7 @@ export default function CommunityPage() {
               </Badge>
               {hasDataError ? (
                 <Badge variant="outline" className="border-abyss-700 bg-abyss-900/80 text-muted-foreground">
-                  Partial API Data
+                  Some sections may be missing
                 </Badge>
               ) : null}
             </div>
@@ -161,8 +161,8 @@ export default function CommunityPage() {
               Follow the players building better paths through games.
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Articles, active game hubs, reviews, and public lists come together here.
-              Each game hub links into its guide-focused community page.
+              Find the newest writeups, heated favorites, shared lists, and game hubs
+              people keep coming back to.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               <Link
@@ -194,8 +194,10 @@ export default function CommunityPage() {
           <section className="rounded-lg border border-abyss-800 bg-abyss-900/70 p-5 ring-1 ring-white/5">
             <SectionTitle eyebrow="Editorial" title="Community Articles" icon={FileText} />
             {featuredArticle ? (
-              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-                <article className="group rounded-lg border border-azure-500/40 bg-abyss-950/60 p-5 ring-1 ring-white/5 transition hover:border-azure-500/70 hover:bg-abyss-950">
+              <div className="grid items-stretch gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+                <article className="group relative flex min-h-[520px] overflow-hidden rounded-lg border border-azure-500/40 bg-abyss-950/60 p-5 ring-1 ring-white/5 transition hover:border-azure-500/70 hover:bg-abyss-950">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(26,133,255,0.22),transparent_34%),linear-gradient(145deg,rgba(26,133,255,0.12),transparent_45%)] opacity-80" />
+                  <div className="relative flex min-h-full w-full flex-col">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <Link
@@ -214,25 +216,38 @@ export default function CommunityPage() {
                     <h3 className="text-2xl font-black tracking-tight text-azure-50 transition group-hover:text-azure-300">
                       {featuredArticle.title}
                     </h3>
-                    <p className="mt-3 line-clamp-6 text-sm leading-6 text-abyss-200">
+                    <p className="mt-4 line-clamp-8 text-sm leading-7 text-abyss-100">
                       {featuredArticle.content}
                     </p>
                   </Link>
+                  <div className="mt-auto pt-8">
+                    <div className="mb-5 rounded-lg border border-abyss-800/80 bg-abyss-950/70 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-azure-400">
+                        Editor's Pick
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        A useful read from the community feed, highlighted for players
+                        looking for a smarter way in.
+                      </p>
+                    </div>
                   <Link
                     to={`/articles/${featuredArticle.id}`}
-                    className="mt-5 inline-flex items-center gap-2 border-t border-abyss-800 pt-4 text-xs font-bold uppercase tracking-[0.14em] text-azure-300 transition hover:text-azure-100"
+                    className="flex w-fit items-center gap-2 border-t border-azure-500/25 pr-8 pt-4 text-xs font-bold uppercase tracking-[0.14em] text-azure-300 transition hover:text-azure-100"
                   >
                     Read Article
                     <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
+                  </div>
+                  </div>
                 </article>
 
-                <div className="space-y-3">
+                <div className="grid gap-3">
                   {articles.slice(1, 4).map((article) => (
                     <article
                       key={article.id}
-                      className="group rounded-lg border border-abyss-800 bg-abyss-950/55 p-4 transition hover:border-azure-500/50 hover:bg-abyss-950"
+                      className="group relative overflow-hidden rounded-lg border border-abyss-800 bg-abyss-950/55 p-4 transition hover:border-azure-500/50 hover:bg-abyss-950"
                     >
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-azure-500/50 to-transparent opacity-0 transition group-hover:opacity-100" />
                       <div className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
                         <Link
                           to={`/users/${article.user_id}`}
@@ -243,10 +258,10 @@ export default function CommunityPage() {
                         · {formatDate(article)}
                       </div>
                       <Link to={`/articles/${article.id}`} className="mt-2 block">
-                        <h3 className="text-base font-black tracking-tight text-azure-50 transition group-hover:text-azure-300">
+                        <h3 className="line-clamp-2 text-base font-black tracking-tight text-azure-50 transition group-hover:text-azure-300">
                           {article.title}
                         </h3>
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-abyss-200">
+                        <p className="mt-2 line-clamp-3 text-sm leading-6 text-abyss-200">
                           {article.content}
                         </p>
                         <span className="mt-3 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-azure-300">
@@ -294,7 +309,7 @@ export default function CommunityPage() {
                       ) : null}
                     </div>
                     <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
-                      {game.description || "Open guides, reviews, lists, and player activity."}
+                      {game.description || "Guides, reviews, lists, and player activity live here."}
                     </p>
                     <div className="mt-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-azure-300">
                       <BookOpen className="h-4 w-4" />
@@ -305,7 +320,7 @@ export default function CommunityPage() {
               ))}
               {activeGames.length === 0 ? (
                 <p className="rounded-lg border border-abyss-800 bg-abyss-950/55 p-4 text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
-                  No games were returned by the backend yet.
+                  No active game hubs yet.
                 </p>
               ) : null}
             </div>
@@ -365,7 +380,7 @@ export default function CommunityPage() {
               })}
               {reviews.length === 0 ? (
                 <p className="rounded-lg border border-abyss-800 bg-abyss-950/55 p-4 text-sm text-muted-foreground">
-                  No reviews were returned by the backend yet.
+                  No reviews have been shared yet.
                 </p>
               ) : null}
             </div>
@@ -396,7 +411,7 @@ export default function CommunityPage() {
               ))}
               {lists.length === 0 ? (
                 <p className="rounded-lg border border-abyss-800 bg-abyss-950/55 p-4 text-sm text-muted-foreground">
-                  No lists were returned by the backend yet.
+                  No public lists have been shared yet.
                 </p>
               ) : null}
             </div>

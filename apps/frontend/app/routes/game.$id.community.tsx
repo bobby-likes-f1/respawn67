@@ -281,7 +281,7 @@ export default function GameCommunityPage() {
                 </Badge>
                 {hasDataError ? (
                   <Badge variant="outline" className="border-abyss-700 bg-abyss-900/80 text-muted-foreground">
-                    Partial API Data
+                    Some sections may be missing
                   </Badge>
                 ) : null}
               </div>
@@ -289,8 +289,8 @@ export default function GameCommunityPage() {
                 {uiData.title} Community
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Community-written guides sit up front, with reviews, lists, and
-                player activity pulled from the dedicated game community API.
+                Start with player-made guides, then see what people are saying,
+                saving, and playing around this game.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link
@@ -338,7 +338,7 @@ export default function GameCommunityPage() {
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-azure-400/85">
-                  Start Here
+                  First Stop
                 </p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight text-azure-50">
                   Community Guides
@@ -396,7 +396,7 @@ export default function GameCommunityPage() {
           </section>
 
           <section className="rounded-lg border border-abyss-800 bg-abyss-900/70 p-5 ring-1 ring-white/5">
-            <SectionHeading eyebrow="Player Notes" title="Recent Reviews" icon={MessageSquareText} />
+            <SectionHeading eyebrow="What Players Think" title="Recent Reviews" icon={MessageSquareText} />
             <div className="grid gap-3 xl:grid-cols-2">
               {community.reviews.length > 0 ? (
                 community.reviews.slice(0, 6).map((review) => {
@@ -447,7 +447,7 @@ export default function GameCommunityPage() {
           </section>
 
           <section className="rounded-lg border border-abyss-800 bg-abyss-900/70 p-5 ring-1 ring-white/5">
-            <SectionHeading eyebrow="Collections" title="Lists Featuring This" icon={BookOpen} />
+            <SectionHeading eyebrow="Saved Around Here" title="Lists Featuring This" icon={BookOpen} />
             <div className="grid gap-3 xl:grid-cols-2">
               {community.lists.length > 0 ? (
                 community.lists.slice(0, 6).map((list) => (

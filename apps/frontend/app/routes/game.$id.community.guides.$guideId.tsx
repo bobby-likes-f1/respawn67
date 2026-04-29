@@ -26,6 +26,60 @@ function formatDate(item: {
   }).format(new Date(date));
 }
 
+function renderFormattedContent(content: string) {
+  const blocks = content
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  if (blocks.length === 0) {
+    return <p className="text-abyss-300">This guide is empty.</p>;
+  }
+
+  return blocks.map((block, index) => {
+    if (block.startsWith("### ")) {
+      return (
+        <h3
+          key={`${block}-${index}`}
+          className="pt-1 text-lg font-black tracking-tight text-azure-50"
+        >
+          {block.replace(/^###\s+/, "")}
+        </h3>
+      );
+    }
+
+    if (block.startsWith("## ")) {
+      return (
+        <h2
+          key={`${block}-${index}`}
+          className="pt-2 text-2xl font-black tracking-tight text-azure-50"
+        >
+          {block.replace(/^##\s+/, "")}
+        </h2>
+      );
+    }
+
+    if (block.startsWith("- ")) {
+      return (
+        <ul key={`${block}-${index}`} className="space-y-2 text-abyss-100">
+          {block.split("\n").map((line, lineIndex) => (
+            <li key={`${line}-${lineIndex}`} className="flex gap-3">
+              <span className="mt-3 h-1.5 w-1.5 flex-none rounded-full bg-azure-400" />
+              <span>{line.replace(/^-\s+/, "")}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    return (
+      <p key={`${block}-${index}`} className="whitespace-pre-line leading-8 text-abyss-100">
+        {block}
+      </p>
+    );
+  });
+}
+
 export function meta({ data }: any) {
   const guide = data?.guide;
   return [{ title: guide?.title ? `${guide.title} | Respawn67` : "Guide | Respawn67" }];
@@ -170,8 +224,8 @@ export default function GuideDetailPage() {
             <BookOpen className="h-4 w-4" />
             Full Guide
           </div>
-          <div className="max-w-3xl whitespace-pre-wrap text-base leading-8 text-abyss-100">
-            {guide.content}
+          <div className="max-w-3xl space-y-5 text-base">
+            {renderFormattedContent(guide.content)}
           </div>
         </article>
 
@@ -179,10 +233,10 @@ export default function GuideDetailPage() {
           <section className="rounded-lg border border-abyss-800 bg-abyss-900/70 p-4 ring-1 ring-white/5">
             <div className="mb-4">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-azure-400">
-                Next
+                Keep Going
               </p>
               <h2 className="mt-1 text-lg font-black tracking-tight text-azure-50">
-                Guide Actions
+                More Guide Options
               </h2>
             </div>
             <div className="space-y-2">

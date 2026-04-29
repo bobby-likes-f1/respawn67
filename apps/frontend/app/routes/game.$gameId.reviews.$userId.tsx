@@ -163,10 +163,10 @@ export default function GameUserReviewPage() {
           <section className="rounded-lg border border-abyss-800 bg-abyss-900/70 p-4 ring-1 ring-white/5">
             <div className="mb-4">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-azure-400">
-                Next
+                Keep Going
               </p>
               <h2 className="mt-1 text-lg font-black tracking-tight text-azure-50">
-                Review Actions
+                More From Here
               </h2>
             </div>
             <div className="space-y-2">
