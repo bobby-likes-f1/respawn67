@@ -33,7 +33,10 @@ import {
   Link as LinkIcon,
   LayoutGrid,
   Clock,
+  BookOpen,
+  FileText,
   Pencil,
+  PenLine,
   Save,
   Trash2,
   X,
@@ -48,8 +51,10 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import {
+  getAllArticles,
   getAllGames,
   getFavoriteGames,
+  getGameGuides,
   getPlaylistEntries,
   getPlaylistGames,
   getReviews,
@@ -63,7 +68,9 @@ import {
   createList,
   updateList,
   deleteList,
+  type ApiArticle,
   type ApiGame,
+  type ApiGuide,
   type ApiReview,
   type ApiGameList,
   type PlaylistEntry,
@@ -95,6 +102,11 @@ type BacklogStatus = "want_to_play" | "playing" | "completed";
 type UserListItem = ApiGameList & {
   gameCount: number;
   coverImages: string[];
+};
+
+type UserGuideCard = ApiGuide & {
+  gameTitle: string;
+  gameCoverImageUrl: string | null;
 };
 
 const FALLBACK_COVER =
@@ -159,6 +171,8 @@ export default function AccountPage() {
   const [backlogPreview, setBacklogPreview] = useState<BacklogPreviewItem[]>([]);
   const [gameTitleById, setGameTitleById] = useState<Record<number, string>>({});
   const [gameCoverById, setGameCoverById] = useState<Record<number, string | null>>({});
+  const [articles, setArticles] = useState<ApiArticle[]>([]);
+  const [guides, setGuides] = useState<UserGuideCard[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -200,12 +214,13 @@ export default function AccountPage() {
         setIsLoading(true);
         setError(null);
 
-        const [favoriteGames, userReviews, playlistEntries, playlistGames, allGames] = await Promise.all([
+        const [favoriteGames, userReviews, playlistEntries, playlistGames, allGames, allArticles] = await Promise.all([
           getFavoriteGames(user.id),
           getReviews({ userId: user.id }),
           getPlaylistEntries(user.id),
           getPlaylistGames(user.id),
           getAllGames(),
+          getAllArticles().catch(() => []),
         ]);
 
         if (!active) {
@@ -222,6 +237,43 @@ export default function AccountPage() {
         }
         setGameTitleById(titleMap);
         setGameCoverById(coverMap);
+
+        setArticles(
+          allArticles
+            .filter((article) => article.user_id === user.id)
+            .sort((a, b) => {
+              const aTime = new Date(a.updated_at ?? a.UpdatedAt ?? a.created_at ?? a.CreatedAt ?? 0).getTime();
+              const bTime = new Date(b.updated_at ?? b.UpdatedAt ?? b.created_at ?? b.CreatedAt ?? 0).getTime();
+              return bTime - aTime;
+            }),
+        );
+
+        const guideGroups = await Promise.all(
+          allGames.map(async (game) => {
+            try {
+              const gameGuides = await getGameGuides(game.id);
+              return gameGuides
+                .filter((guide) => guide.user_id === user.id)
+                .map((guide) => ({
+                  ...guide,
+                  gameTitle: game.title,
+                  gameCoverImageUrl: game.cover_image_url ?? null,
+                }));
+            } catch {
+              return [] as UserGuideCard[];
+            }
+          }),
+        );
+        if (!active) return;
+        setGuides(
+          guideGroups
+            .flat()
+            .sort((a, b) => {
+              const aTime = new Date(a.updated_at ?? a.UpdatedAt ?? a.created_at ?? a.CreatedAt ?? 0).getTime();
+              const bTime = new Date(b.updated_at ?? b.UpdatedAt ?? b.created_at ?? b.CreatedAt ?? 0).getTime();
+              return bTime - aTime;
+            }),
+        );
 
         setReviews(
           userReviews.map((review) => ({
@@ -347,8 +399,8 @@ export default function AccountPage() {
   const stats = {
     games: backlogPreview.length,
     reviews: reviews.length,
-    following: 0,
-    followers: 0,
+    articles: articles.length,
+    guides: guides.length,
   };
 
   const reviewCards = useMemo(() => {
@@ -639,12 +691,12 @@ export default function AccountPage() {
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Reviews</span>
             </div>
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{stats.following}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Following</span>
+              <span className="text-2xl font-bold">{stats.articles}</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Articles</span>
             </div>
             <div className="bg-muted/30 border rounded-lg p-4 flex flex-col justify-center items-center text-center lg:min-w-[110px]">
-              <span className="text-2xl font-bold">{stats.followers}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Followers</span>
+              <span className="text-2xl font-bold">{stats.guides}</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Guides</span>
             </div>
           </div>
         </div>
@@ -654,6 +706,7 @@ export default function AccountPage() {
             <TabsList className="bg-muted/50 p-1 flex w-full h-auto">
               <TabsTrigger value="profile" className="flex-1 text-sm sm:text-base py-2">Profile</TabsTrigger>
               <TabsTrigger value="reviews" className="flex-1 text-sm sm:text-base py-2">Reviews</TabsTrigger>
+              <TabsTrigger value="writing" className="flex-1 text-sm sm:text-base py-2">Writing</TabsTrigger>
               <TabsTrigger value="backlog" className="flex-1 text-sm sm:text-base py-2">Backlog</TabsTrigger>
               <TabsTrigger value="lists" className="flex-1 text-sm sm:text-base py-2">Lists</TabsTrigger>
             </TabsList>
@@ -723,6 +776,63 @@ export default function AccountPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">No recent review activity.</p>
+                  )}
+                </section>
+
+                <section>
+                  <div className="flex justify-between items-baseline border-b border-border/40 pb-2 mb-4">
+                    <h3 className="text-sm font-medium text-white uppercase tracking-wider">Community Writing</h3>
+                    <span className="text-xs text-muted-foreground">Articles and guides</span>
+                  </div>
+                  {articles.length > 0 || guides.length > 0 ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {articles.slice(0, 2).map((article) => (
+                        <Link
+                          key={`article-${article.id}`}
+                          to={`/articles/${article.id}`}
+                          className="group rounded-lg border border-abyss-800 bg-abyss-900/60 p-4 transition hover:border-azure-500/60 hover:bg-abyss-900"
+                        >
+                          <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
+                            <FileText className="h-3.5 w-3.5" />
+                            Article
+                          </div>
+                          <h4 className="line-clamp-2 text-base font-bold text-azure-50 transition group-hover:text-azure-200">
+                            {article.title}
+                          </h4>
+                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                            {article.content}
+                          </p>
+                        </Link>
+                      ))}
+                      {guides.slice(0, 2).map((guide) => (
+                        <div
+                          key={`guide-${guide.game_id}-${guide.id}`}
+                          className="group rounded-lg border border-abyss-800 bg-abyss-900/60 p-4 transition hover:border-azure-500/60 hover:bg-abyss-900"
+                        >
+                          <Link to={`/games/${guide.game_id}/community/guides/${guide.id}`}>
+                            <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
+                              <BookOpen className="h-3.5 w-3.5" />
+                              Guide
+                            </div>
+                            <h4 className="line-clamp-2 text-base font-bold text-azure-50 transition group-hover:text-azure-200">
+                              {guide.title}
+                            </h4>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              {guide.gameTitle}
+                            </p>
+                          </Link>
+                          <Link
+                            to={`/games/${guide.game_id}/community/guides/${guide.id}/edit`}
+                            className="mt-4 inline-flex items-center gap-2 rounded-md border border-abyss-700 bg-abyss-950/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-azure-100 transition hover:border-azure-500/60 hover:bg-azure-500/10"
+                          >
+                            <PenLine className="h-3.5 w-3.5" />
+                            Edit Guide
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No articles or guides published yet.</p>
                   )}
                 </section>
               </div>
@@ -885,6 +995,99 @@ export default function AccountPage() {
             ) : (
               <p className="text-sm text-muted-foreground">No reviews posted yet.</p>
             )}
+          </TabsContent>
+
+          <TabsContent value="writing" className="mt-8 outline-none animate-in fade-in-50 duration-500">
+            <div className="grid gap-8 lg:grid-cols-2">
+              <section>
+                <div className="mb-5 flex items-center justify-between border-b border-border/40 pb-2">
+                  <h3 className="text-sm font-medium text-white uppercase tracking-wider">My Articles</h3>
+                  <span className="text-xs font-bold text-azure-400">{articles.length}</span>
+                </div>
+                {articles.length > 0 ? (
+                  <div className="space-y-3">
+                    {articles.map((article) => (
+                      <Link
+                        key={article.id}
+                        to={`/articles/${article.id}`}
+                        className="group block rounded-lg border border-abyss-800 bg-abyss-900/70 p-4 transition hover:border-azure-500/60 hover:bg-abyss-900"
+                      >
+                        <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
+                          <FileText className="h-3.5 w-3.5" />
+                          {formatDate(article.created_at ?? article.CreatedAt)}
+                        </div>
+                        <h4 className="text-lg font-bold text-azure-50 transition group-hover:text-azure-200">
+                          {article.title}
+                        </h4>
+                        <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                          {article.content}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No articles yet.</p>
+                )}
+              </section>
+
+              <section>
+                <div className="mb-5 flex items-center justify-between border-b border-border/40 pb-2">
+                  <h3 className="text-sm font-medium text-white uppercase tracking-wider">My Guides</h3>
+                  <span className="text-xs font-bold text-azure-400">{guides.length}</span>
+                </div>
+                {guides.length > 0 ? (
+                  <div className="space-y-3">
+                    {guides.map((guide) => (
+                      <div
+                        key={`${guide.game_id}-${guide.id}`}
+                        className="group rounded-lg border border-abyss-800 bg-abyss-900/70 p-3 transition hover:border-azure-500/60 hover:bg-abyss-900"
+                      >
+                        <div className="grid grid-cols-[64px_1fr] gap-4">
+                          <Link to={`/games/${guide.game_id}/community/guides/${guide.id}`}>
+                            <img
+                              src={changeImageSize(guide.gameCoverImageUrl, "cover_big")}
+                              alt={`${guide.gameTitle} cover`}
+                              className="aspect-[3/4] w-16 rounded-md border border-abyss-700 object-cover"
+                            />
+                          </Link>
+                          <div className="min-w-0 py-1">
+                            <Link to={`/games/${guide.game_id}/community/guides/${guide.id}`}>
+                              <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-azure-300">
+                                <BookOpen className="h-3.5 w-3.5" />
+                                {guide.gameTitle}
+                              </div>
+                              <h4 className="line-clamp-2 text-base font-bold text-azure-50 transition group-hover:text-azure-200">
+                                {guide.title}
+                              </h4>
+                              <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                                {guide.content}
+                              </p>
+                            </Link>
+                            <Link
+                              to={`/games/${guide.game_id}/community/guides/${guide.id}/edit`}
+                              className="mt-4 inline-flex items-center gap-2 rounded-md border border-abyss-700 bg-abyss-950/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-azure-100 transition hover:border-azure-500/60 hover:bg-azure-500/10"
+                            >
+                              <PenLine className="h-3.5 w-3.5" />
+                              Edit Guide
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-abyss-700 bg-abyss-900/40 p-6">
+                    <p className="text-sm text-muted-foreground">No guides yet.</p>
+                    <Link
+                      to="/community"
+                      className="mt-4 inline-flex rounded-lg bg-azure-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-azure-500"
+                    >
+                      Find a Game Community
+                    </Link>
+                  </div>
+                )}
+              </section>
+            </div>
           </TabsContent>
 
           <TabsContent value="backlog" className="mt-8 outline-none animate-in fade-in-50 duration-500">
