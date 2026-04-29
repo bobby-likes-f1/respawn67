@@ -11,7 +11,10 @@ type ReviewsService struct {
 }
 
 func NewReviewsService() *ReviewsService {
-	return &ReviewsService{repo: repositories.NewReviewsRepository()}
+	return &ReviewsService{
+		repo:      repositories.NewReviewsRepository(),
+		gamesRepo: repositories.NewGamesRepository(),
+	}
 }
 
 func (s *ReviewsService) CreateReview(review models.Review) (models.Review, error) {
