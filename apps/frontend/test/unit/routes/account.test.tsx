@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import {
   statusToProgress,
   normalizeBacklogStatus,
@@ -24,6 +24,9 @@ vi.mock("react-router", async () => {
 const mockGetStoredUser = vi.fn();
 const mockGetInitials = vi.fn().mockReturnValue("P");
 const mockGetMemberSinceLabel = vi.fn().mockReturnValue("2026");
+const mockGetAllArticles = vi.fn();
+const mockGetAllGames = vi.fn();
+const mockGetGameGuides = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   getStoredUser: () => mockGetStoredUser(),
@@ -37,15 +40,22 @@ vi.mock("@/lib/use-require-auth", () => ({
 }));
 
 vi.mock("@/lib/api", () => ({
+  getAllArticles: () => mockGetAllArticles(),
   getFavoriteGames: vi.fn(async () => []),
   getReviews: vi.fn(async () => []),
   getPlaylistEntries: vi.fn(async () => []),
   getPlaylistGames: vi.fn(async () => []),
-  getAllGames: vi.fn(async () => []),
+  getAllGames: () => mockGetAllGames(),
+  getGameGuides: (id: string | number) => mockGetGameGuides(id),
+  getUserLists: vi.fn(async () => []),
+  getListGames: vi.fn(async () => []),
+  createList: vi.fn(),
+  updateList: vi.fn(),
+  deleteList: vi.fn(),
   deleteReview: vi.fn(),
   removeFavoriteByGame: vi.fn(),
   removeFromPlaylist: vi.fn(),
-  updatePlaylistStatusByGame: vi.fn(),
+  updatePlaylistEntryByGame: vi.fn(),
   updateReview: vi.fn(),
 }));
 
@@ -127,6 +137,32 @@ describe("AccountPage", () => {
       email: "neo@matrix.io",
       createdAt: "2024-01-01T00:00:00Z",
     });
+    mockGetAllGames.mockResolvedValue([
+      {
+        id: 7,
+        title: "Elden Ring",
+        cover_image_url: "https://images.igdb.com/igdb/image/upload/t_cover_small/co1.webp",
+      },
+    ]);
+    mockGetAllArticles.mockResolvedValue([
+      {
+        id: 11,
+        user_id: 1,
+        title: "My article",
+        content: "A draft of useful community notes.",
+        created_at: "2026-04-28T12:00:00Z",
+      },
+    ]);
+    mockGetGameGuides.mockResolvedValue([
+      {
+        id: 21,
+        game_id: 7,
+        user_id: 1,
+        title: "My guide",
+        content: "A route that belongs to the signed-in user.",
+        created_at: "2026-04-29T12:00:00Z",
+      },
+    ]);
   });
 
   it("renders profile header with username", async () => {
@@ -143,11 +179,31 @@ describe("AccountPage", () => {
     render(<AccountPage />);
     expect(await screen.findByRole("tab", { name: /Profile/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Reviews/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Writing/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Backlog/i })).toBeInTheDocument();
   });
 
   it("renders favourite games heading", async () => {
     render(<AccountPage />);
     expect(await screen.findByText("Favorite Games")).toBeInTheDocument();
+  });
+
+  it("shows editable articles and guides on the writing tab", async () => {
+    render(<AccountPage />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Writing/i }));
+
+    expect(await screen.findByRole("link", { name: /My article/i })).toHaveAttribute(
+      "href",
+      "/articles/11",
+    );
+    expect(screen.getByRole("link", { name: /My guide/i })).toHaveAttribute(
+      "href",
+      "/games/7/community/guides/21",
+    );
+    expect(screen.getByRole("link", { name: /Edit/i })).toHaveAttribute(
+      "href",
+      "/games/7/community/guides/21/edit",
+    );
   });
 });

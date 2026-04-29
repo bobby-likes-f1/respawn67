@@ -49,9 +49,26 @@ describe("transformGameData", () => {
     expect(result.rating).toBe(Number((8 + (7 % 20) / 10).toFixed(1)));
   });
 
-  it("computes deterministic timeToBeat", () => {
+  it("uses API main-story duration for timeToBeat", () => {
+    const result = transformGameData({
+      ...game,
+      duration: {
+        main_story_hours: 42,
+        main_plus_sides_hours: 60,
+        completionist_hours: 90,
+      },
+    });
+    expect(result.timeToBeat).toBe(42);
+    expect(result.timeToHover).toEqual({
+      main: 42,
+      extra: 60,
+      complete: 90,
+    });
+  });
+
+  it("falls back to zero when no duration exists", () => {
     const result = transformGameData(game);
-    expect(result.timeToBeat).toBe(12 + (7 % 24));
+    expect(result.timeToBeat).toBe(0);
   });
 
   it("uses developer as platform when present", () => {

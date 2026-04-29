@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft } from "lucide-react";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { getStoredUser } from "@/lib/auth";
+import { getArticleById, updateArticle, type ApiArticle } from "@/lib/api";
 import type { Route } from "./+types/articles.edit.$id";
 
 export function meta({ params }: Route.MetaArgs) {
@@ -23,18 +24,7 @@ export function meta({ params }: Route.MetaArgs) {
   ];
 }
 
-type Article = {
-  id: number;
-  user_id: number;
-  user?: {
-    id: number;
-    username: string;
-  };
-  title: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
-};
+type Article = ApiArticle;
 
 export default function EditArticlePage() {
   useRequireAuth();
@@ -53,11 +43,7 @@ export default function EditArticlePage() {
   useEffect(() => {
     const fetchArticle = async () => {
       try {
-        const response = await fetch(`/api/v1/articles/${id}`);
-        if (!response.ok) {
-          throw new Error("Article not found");
-        }
-        const data = await response.json();
+        const data = await getArticleById(id ?? "");
         
         // Check if user is the author
         if (data.user_id !== user?.id) {
@@ -93,23 +79,10 @@ export default function EditArticlePage() {
     }
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`/api/v1/articles/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-        }),
+      await updateArticle(id ?? "", {
+        title: title.trim(),
+        content: content.trim(),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update article");
-      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -124,10 +97,10 @@ export default function EditArticlePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-8">
+      <div className="min-h-screen bg-background p-8 text-foreground">
         <div className="mx-auto max-w-3xl">
           <div className="flex justify-center py-12">
-            <div className="text-slate-400">Loading article...</div>
+            <div className="text-muted-foreground">Loading article...</div>
           </div>
         </div>
       </div>
@@ -136,11 +109,11 @@ export default function EditArticlePage() {
 
   if (error && !article) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-8">
+      <div className="min-h-screen bg-background p-8 text-foreground">
         <div className="mx-auto max-w-3xl">
-          <Card className="border-slate-700 bg-slate-800">
+          <Card className="border-abyss-800 bg-abyss-900/75">
             <CardContent className="py-12 text-center">
-              <p className="mb-4 text-red-400">{error}</p>
+              <p className="mb-4 text-red-100">{error}</p>
               <Button onClick={() => navigate("/articles")}>Back to Articles</Button>
             </CardContent>
           </Card>
@@ -150,61 +123,62 @@ export default function EditArticlePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-8">
+    <div className="min-h-screen bg-background p-8 text-foreground">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_18%_8%,rgba(26,133,255,0.18),transparent_32%),linear-gradient(180deg,var(--background),#050915_62%,var(--background))]" />
       <div className="mx-auto max-w-3xl">
         <Button
           variant="ghost"
           onClick={() => navigate(`/articles/${id}`)}
-          className="mb-6 gap-2"
+          className="mb-6 gap-2 text-azure-100 hover:bg-azure-500/10 hover:text-azure-50"
         >
           <ArrowLeft className="h-4 w-4" />
           Cancel
         </Button>
 
-        <Card className="border-slate-700 bg-slate-800">
+        <Card className="rounded-lg border-abyss-800 bg-abyss-900/75 ring-1 ring-white/5">
           <CardHeader>
-            <CardTitle className="text-3xl text-white">Edit Article</CardTitle>
+            <CardTitle className="text-3xl font-black tracking-tight text-azure-50">Edit Article</CardTitle>
           </CardHeader>
           <CardContent>
             {success ? (
               <div className="rounded-lg border border-green-500 bg-green-500/10 p-6 text-center">
                 <p className="text-lg font-semibold text-green-400">
-                  Article updated successfully! ✨
+                  Article updated successfully.
                 </p>
-                <p className="mt-2 text-slate-300">Redirecting...</p>
+                <p className="mt-2 text-abyss-200">Redirecting...</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
-                  <div className="rounded-lg border border-red-500 bg-red-500/10 p-4 text-red-400">
+                  <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-red-100">
                     {error}
                   </div>
                 )}
 
                 {/* Title */}
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-white">
+                  <label className="block text-sm font-medium text-azure-50">
                     Title <span className="text-red-400">*</span>
                   </label>
                   <Input
                     placeholder="Enter article title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                    className="border-abyss-700 bg-abyss-950/80 text-azure-50 placeholder:text-muted-foreground"
                     disabled={saving}
                   />
                 </div>
 
                 {/* Content */}
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-white">
+                  <label className="block text-sm font-medium text-azure-50">
                     Content <span className="text-red-400">*</span>
                   </label>
                   <textarea
                     placeholder="Write your article here..."
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="min-h-96 w-full rounded-md border border-slate-600 bg-slate-900 p-3 text-white placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
+                    className="min-h-96 w-full rounded-md border border-abyss-700 bg-abyss-950/80 p-3 text-azure-50 placeholder:text-muted-foreground focus:border-azure-500/60 focus:outline-none"
                     disabled={saving}
                   />
                 </div>
@@ -214,7 +188,7 @@ export default function EditArticlePage() {
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 bg-gradient-to-r from-azure-600 to-azure-500 hover:from-azure-500 hover:to-azure-400"
+                    className="flex-1 border border-azure-400/50 bg-gradient-to-r from-azure-600 to-azure-500 text-white hover:from-azure-500 hover:to-azure-400"
                   >
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
@@ -223,6 +197,7 @@ export default function EditArticlePage() {
                     variant="outline"
                     onClick={() => navigate(`/articles/${id}`)}
                     disabled={saving}
+                    className="border-abyss-700"
                   >
                     Cancel
                   </Button>
