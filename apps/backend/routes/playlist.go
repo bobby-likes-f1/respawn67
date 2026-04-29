@@ -35,8 +35,8 @@ func addPlaylistRoutes(rg *gin.RouterGroup) {
 	playlistRoutes.GET("/", router.GetByUserID)
 	playlistRoutes.GET("/games", router.GetGamesByUserID)
 	playlistRoutes.POST("/", router.AddGame)
-	playlistRoutes.PUT("/:entryId", router.UpdateStatus)
-	playlistRoutes.PUT("/game/:gameId", router.UpdateStatusByGame)
+	playlistRoutes.PUT("/:entryId", router.UpdateEntry)
+	playlistRoutes.PUT("/game/:gameId", router.UpdateEntryByGame)
 	playlistRoutes.DELETE("/:entryId", router.RemoveGame)
 	playlistRoutes.DELETE("/game/:gameId", router.RemoveByGame)
 }
@@ -123,77 +123,58 @@ func (r *PlaylistRouter) AddGame(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, newEntry)
 }
 
-func (r *PlaylistRouter) UpdateStatus(c *gin.Context) {
+func (r *PlaylistRouter) UpdateEntry(c *gin.Context) {
 	if !utils.CheckOwnership(c, "id") {
 		return
 	}
-
-	idStr := c.Param("entryId")
-
-	id, err := strconv.Atoi(idStr)
+	entryID, err := strconv.Atoi(c.Param("entryId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid playlist entry id",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid playlist entry id"})
 		return
 	}
-
 	var body struct {
-		Status string `json:"status"`
-	}
-
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid request body",
-			"error":   err.Error(),
-		})
-		return
-	}
-
-	entry, err := r.service.UpdateStatus(uint(id), body.Status)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, entry)
-}
-
-func (r *PlaylistRouter) UpdateStatusByGame(c *gin.Context) {
-	if !utils.CheckOwnership(c, "id") {
-		return
-	}
-
-	idStr := c.Param("id")
-	userID, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
-		return
-	}
-
-	gameIDStr := c.Param("gameId")
-	gameID, err := strconv.Atoi(gameIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
-		return
-	}
-
-	var body struct {
-		Status string `json:"status"`
+		Status      string   `json:"status"`
+		HoursPlayed *float32 `json:"hours_played"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body", "error": err.Error()})
 		return
 	}
+	entry, err := r.service.UpdateEntry(uint(entryID), body.Status, body.HoursPlayed)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, entry)
+}
 
-	entry, err := r.service.UpdateStatusByUserAndGame(uint(userID), uint(gameID), body.Status)
+func (r *PlaylistRouter) UpdateEntryByGame(c *gin.Context) {
+	if !utils.CheckOwnership(c, "id") {
+		return
+	}
+	userID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid user id"})
+		return
+	}
+	gameID, err := strconv.Atoi(c.Param("gameId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid game id"})
+		return
+	}
+	var body struct {
+		Status      string   `json:"status"`
+		HoursPlayed *float32 `json:"hours_played"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body", "error": err.Error()})
+		return
+	}
+	entry, err := r.service.UpdateEntryByUserAndGame(uint(userID), uint(gameID), body.Status, body.HoursPlayed)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "game not found in playlist"})
 		return
 	}
-
 	c.JSON(http.StatusOK, entry)
 }
 
