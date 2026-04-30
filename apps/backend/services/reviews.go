@@ -6,15 +6,24 @@ import (
 )
 
 type ReviewsService struct {
-	repo *repositories.ReviewsRepository
+	repo      *repositories.ReviewsRepository
+	gamesRepo *repositories.GamesRepository
 }
 
 func NewReviewsService() *ReviewsService {
-	return &ReviewsService{repo: repositories.NewReviewsRepository()}
+	return &ReviewsService{
+		repo:      repositories.NewReviewsRepository(),
+		gamesRepo: repositories.NewGamesRepository(),
+	}
 }
 
 func (s *ReviewsService) CreateReview(review models.Review) (models.Review, error) {
-	return s.repo.CreateReview(review)
+	created, err := s.repo.CreateReview(review)
+	if err != nil {
+		return created, err
+	}
+	s.gamesRepo.UpdateGameRating(review.GameID)
+	return created, nil
 }
 
 func (s *ReviewsService) GetReviewByID(id uint) (models.Review, error) {
@@ -26,9 +35,19 @@ func (s *ReviewsService) GetReviews(userID *uint, gameID *uint) ([]models.Review
 }
 
 func (s *ReviewsService) UpdateReview(userID uint, gameID uint, review models.Review) (models.Review, error) {
-	return s.repo.UpdateReview(userID, gameID, review)
+	updated, err := s.repo.UpdateReview(userID, gameID, review)
+	if err != nil {
+		return updated, err
+	}
+	s.gamesRepo.UpdateGameRating(gameID)
+	return updated, nil
 }
 
 func (s *ReviewsService) DeleteReview(userID uint, gameID uint) error {
-	return s.repo.DeleteReview(userID, gameID)
+	err := s.repo.DeleteReview(userID, gameID)
+	if err != nil {
+		return err
+	}
+	s.gamesRepo.UpdateGameRating(gameID)
+	return nil
 }

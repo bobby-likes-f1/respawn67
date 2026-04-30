@@ -26,24 +26,34 @@ func (r *PlaylistRepository) Create(entry models.Playlist) (models.Playlist, err
 	return entry, result.Error
 }
 
-func (r *PlaylistRepository) Update(id uint, status string) (models.Playlist, error) {
+func (r *PlaylistRepository) Update(id uint, status string, hoursPlayed *float32) (models.Playlist, error) {
 	var entry models.Playlist
-	result := r.db.Model(&entry).Where("id = ?", id).Update("status", status)
-	if result.Error != nil {
+	if result := r.db.First(&entry, id); result.Error != nil {
 		return entry, result.Error
 	}
-	r.db.First(&entry, id)
-	return entry, nil
+	if status != "" {
+		entry.Status = status
+	}
+	if hoursPlayed != nil {
+		entry.HoursPlayed = *hoursPlayed
+	}
+	result := r.db.Save(&entry)
+	return entry, result.Error
 }
 
-func (r *PlaylistRepository) UpdateByUserAndGame(userID uint, gameID uint, status string) (models.Playlist, error) {
+func (r *PlaylistRepository) UpdateByUserAndGame(userID uint, gameID uint, status string, hoursPlayed *float32) (models.Playlist, error) {
 	var entry models.Playlist
-	result := r.db.Model(&entry).Where("user_id = ? AND game_id = ?", userID, gameID).Update("status", status)
-	if result.RowsAffected == 0 {
+	if result := r.db.Where("user_id = ? AND game_id = ?", userID, gameID).First(&entry); result.Error != nil {
 		return entry, gorm.ErrRecordNotFound
 	}
-	r.db.Where("user_id = ? AND game_id = ?", userID, gameID).First(&entry)
-	return entry, nil
+	if status != "" {
+		entry.Status = status
+	}
+	if hoursPlayed != nil {
+		entry.HoursPlayed = *hoursPlayed
+	}
+	result := r.db.Save(&entry)
+	return entry, result.Error
 }
 
 func (r *PlaylistRepository) Delete(id uint) error {

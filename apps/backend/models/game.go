@@ -17,6 +17,9 @@ type Game struct {
 	ReleaseDate   *string `json:"release_date" gorm:"size:10"`
 	CoverImageURL *string `json:"cover_image_url"`
 
+	AverageRating *float64 `json:"average_rating" gorm:"default:null"`
+	ReviewCount   int      `json:"review_count"   gorm:"default:0"`
+
 	Duration *GameDuration `json:"duration"       gorm:"foreignKey:GameID"`
 
 	CreatedAt time.Time `json:"created_at"`

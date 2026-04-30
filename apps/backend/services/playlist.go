@@ -23,21 +23,19 @@ func (s *PlaylistService) GetGamesByUserID(userID uint) ([]models.Game, error) {
 }
 
 func (s *PlaylistService) AddGame(entry models.Playlist) (models.Playlist, error) {
-	// Check if game is already in user's playlist
 	_, err := s.repo.FindByUserAndGame(entry.UserID, entry.GameID)
 	if err == nil {
 		return models.Playlist{}, errors.New("game already in playlist")
 	}
-
 	return s.repo.Create(entry)
 }
 
-func (s *PlaylistService) UpdateStatus(id uint, status string) (models.Playlist, error) {
-	return s.repo.Update(id, status)
+func (s *PlaylistService) UpdateEntry(id uint, status string, hoursPlayed *float32) (models.Playlist, error) {
+	return s.repo.Update(id, status, hoursPlayed)
 }
 
-func (s *PlaylistService) UpdateStatusByUserAndGame(userID uint, gameID uint, status string) (models.Playlist, error) {
-	return s.repo.UpdateByUserAndGame(userID, gameID, status)
+func (s *PlaylistService) UpdateEntryByUserAndGame(userID uint, gameID uint, status string, hoursPlayed *float32) (models.Playlist, error) {
+	return s.repo.UpdateByUserAndGame(userID, gameID, status, hoursPlayed)
 }
 
 func (s *PlaylistService) RemoveGame(id uint) error {

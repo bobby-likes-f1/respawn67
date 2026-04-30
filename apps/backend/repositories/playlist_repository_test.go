@@ -26,6 +26,26 @@ func TestPlaylistRepository_Create(t *testing.T) {
 	}
 }
 
+func TestPlaylistRepository_Create_WithHoursPlayed(t *testing.T) {
+	db := setupTestDB()
+	repo := &PlaylistRepository{db: db}
+
+	entry := models.Playlist{UserID: 1, GameID: 1, Status: "playing", HoursPlayed: 12.5}
+
+	created, err := repo.Create(entry)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if created.HoursPlayed != 12.5 {
+		t.Fatalf("expected hours_played 12.5, got %f", created.HoursPlayed)
+	}
+
+	found, _ := repo.FindByUserAndGame(1, 1)
+	if found.HoursPlayed != 12.5 {
+		t.Fatalf("expected persisted hours_played 12.5, got %f", found.HoursPlayed)
+	}
+}
+
 func TestPlaylistRepository_GetByUserID(t *testing.T) {
 	db := setupTestDB()
 	repo := &PlaylistRepository{db: db}
@@ -100,19 +120,24 @@ func TestPlaylistRepository_FindByUserAndGame_NotFound(t *testing.T) {
 	}
 }
 
-func TestPlaylistRepository_Update(t *testing.T) {
+func TestPlaylistRepository_Update_StatusOnly(t *testing.T) {
 	db := setupTestDB()
 	repo := &PlaylistRepository{db: db}
 
-	created, _ := repo.Create(models.Playlist{UserID: 1, GameID: 1, Status: "want_to_play"})
+	created, _ := repo.Create(models.Playlist{UserID: 1, GameID: 1, Status: "want_to_play", HoursPlayed: 5.0})
 
-	updated, err := repo.Update(created.ID, "playing")
+	updated, err := repo.Update(created.ID, "playing", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if updated.Status != "playing" {
 		t.Fatalf("expected status 'playing', got '%s'", updated.Status)
 	}
+	// hours_played should be unchanged
+	if updated.HoursPlayed != 5.0 {
+		t.Fatalf("expected hours_played to remain 5.0, got %f", updated.HoursPlayed)
+	}
+	// other fields should be preserved
 	if updated.UserID != 1 {
 		t.Fatalf("expected user_id to remain 1, got %d", updated.UserID)
 	}
@@ -121,18 +146,117 @@ func TestPlaylistRepository_Update(t *testing.T) {
 	}
 }
 
-func TestPlaylistRepository_UpdateByUserAndGame(t *testing.T) {
+func TestPlaylistRepository_Update_HoursOnly(t *testing.T) {
 	db := setupTestDB()
 	repo := &PlaylistRepository{db: db}
 
-	repo.Create(models.Playlist{UserID: 1, GameID: 3, Status: "want_to_play"})
+	created, _ := repo.Create(models.Playlist{UserID: 1, GameID: 1, Status: "playing", HoursPlayed: 5.0})
 
-	updated, err := repo.UpdateByUserAndGame(1, 3, "completed")
+	hours := float32(20.0)
+	updated, err := repo.Update(created.ID, "", &hours)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.HoursPlayed != 20.0 {
+		t.Fatalf("expected hours_played 20.0, got %f", updated.HoursPlayed)
+	}
+	// status should be unchanged
+	if updated.Status != "playing" {
+		t.Fatalf("expected status to remain 'playing', got '%s'", updated.Status)
+	}
+}
+
+func TestPlaylistRepository_Update_StatusAndHours(t *testing.T) {
+	db := setupTestDB()
+	repo := &PlaylistRepository{db: db}
+
+	created, _ := repo.Create(models.Playlist{UserID: 1, GameID: 1, Status: "playing", HoursPlayed: 10.0})
+
+	hours := float32(47.0)
+	updated, err := repo.Update(created.ID, "completed", &hours)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if updated.Status != "completed" {
 		t.Fatalf("expected status 'completed', got '%s'", updated.Status)
+	}
+	if updated.HoursPlayed != 47.0 {
+		t.Fatalf("expected hours_played 47.0, got %f", updated.HoursPlayed)
+	}
+}
+
+func TestPlaylistRepository_Update_ZeroHours(t *testing.T) {
+	db := setupTestDB()
+	repo := &PlaylistRepository{db: db}
+
+	created, _ := repo.Create(models.Playlist{UserID: 1, GameID: 1, Status: "playing", HoursPlayed: 15.0})
+
+	hours := float32(0.0)
+	updated, err := repo.Update(created.ID, "", &hours)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	// 0 is a valid value when the pointer is set
+	if updated.HoursPlayed != 0.0 {
+		t.Fatalf("expected hours_played 0.0, got %f", updated.HoursPlayed)
+	}
+}
+
+func TestPlaylistRepository_UpdateByUserAndGame_StatusOnly(t *testing.T) {
+	db := setupTestDB()
+	repo := &PlaylistRepository{db: db}
+
+	repo.Create(models.Playlist{UserID: 1, GameID: 3, Status: "want_to_play", HoursPlayed: 2.0})
+
+	updated, err := repo.UpdateByUserAndGame(1, 3, "completed", nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.Status != "completed" {
+		t.Fatalf("expected status 'completed', got '%s'", updated.Status)
+	}
+	// hours_played should be unchanged
+	if updated.HoursPlayed != 2.0 {
+		t.Fatalf("expected hours_played to remain 2.0, got %f", updated.HoursPlayed)
+	}
+}
+
+func TestPlaylistRepository_UpdateByUserAndGame_HoursOnly(t *testing.T) {
+	db := setupTestDB()
+	repo := &PlaylistRepository{db: db}
+
+	repo.Create(models.Playlist{UserID: 1, GameID: 3, Status: "playing", HoursPlayed: 5.0})
+
+	hours := float32(30.0)
+	updated, err := repo.UpdateByUserAndGame(1, 3, "", &hours)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.HoursPlayed != 30.0 {
+		t.Fatalf("expected hours_played 30.0, got %f", updated.HoursPlayed)
+	}
+	// status should be unchanged
+	if updated.Status != "playing" {
+		t.Fatalf("expected status to remain 'playing', got '%s'", updated.Status)
+	}
+}
+
+func TestPlaylistRepository_UpdateByUserAndGame_StatusAndHours(t *testing.T) {
+	db := setupTestDB()
+	repo := &PlaylistRepository{db: db}
+
+	repo.Create(models.Playlist{UserID: 1, GameID: 3, Status: "playing", HoursPlayed: 10.0})
+
+	hours := float32(42.0)
+	updated, err := repo.UpdateByUserAndGame(1, 3, "completed", &hours)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.Status != "completed" {
+		t.Fatalf("expected status 'completed', got '%s'", updated.Status)
+	}
+	if updated.HoursPlayed != 42.0 {
+		t.Fatalf("expected hours_played 42.0, got %f", updated.HoursPlayed)
 	}
 }
 
@@ -140,7 +264,7 @@ func TestPlaylistRepository_UpdateByUserAndGame_NotFound(t *testing.T) {
 	db := setupTestDB()
 	repo := &PlaylistRepository{db: db}
 
-	_, err := repo.UpdateByUserAndGame(1, 999, "playing")
+	_, err := repo.UpdateByUserAndGame(1, 999, "playing", nil)
 	if err == nil {
 		t.Fatal("expected error for non-existent entry, got nil")
 	}
@@ -197,7 +321,6 @@ func TestPlaylistRepository_HardDelete_CanReAdd(t *testing.T) {
 	repo.Create(models.Playlist{UserID: 1, GameID: 1, Status: "playing"})
 	repo.DeleteByUserAndGame(1, 1)
 
-	// Should be able to re-add after hard delete
 	created, err := repo.Create(models.Playlist{UserID: 1, GameID: 1, Status: "want_to_play"})
 	if err != nil {
 		t.Fatalf("expected no error re-adding after hard delete, got %v", err)
@@ -216,7 +339,6 @@ func TestPlaylistRepository_DeleteByUserAndGame_DoesNotAffectOtherUsers(t *testi
 
 	repo.DeleteByUserAndGame(1, 1)
 
-	// User 2's entry should still exist
 	found, err := repo.FindByUserAndGame(2, 1)
 	if err != nil {
 		t.Fatalf("expected user 2's entry to still exist, got error: %v", err)
@@ -279,25 +401,5 @@ func TestPlaylistRepository_GetGamesByUserID_ExcludesDeletedPlaylistEntries(t *t
 	}
 	if games[0].Title != "Game B" {
 		t.Fatalf("expected 'Game B', got '%s'", games[0].Title)
-	}
-}
-
-func TestPlaylistRepository_Create_WithHoursPlayed(t *testing.T) {
-	db := setupTestDB()
-	repo := &PlaylistRepository{db: db}
-
-	entry := models.Playlist{UserID: 1, GameID: 1, Status: "playing", HoursPlayed: 12.5}
-
-	created, err := repo.Create(entry)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if created.HoursPlayed != 12.5 {
-		t.Fatalf("expected hours_played 12.5, got %f", created.HoursPlayed)
-	}
-
-	found, _ := repo.FindByUserAndGame(1, 1)
-	if found.HoursPlayed != 12.5 {
-		t.Fatalf("expected persisted hours_played 12.5, got %f", found.HoursPlayed)
 	}
 }

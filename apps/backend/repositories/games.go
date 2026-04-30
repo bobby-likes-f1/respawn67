@@ -78,3 +78,21 @@ func (r *GamesRepository) DeleteDuration(gameID uint) error {
 	}
 	return result.Error
 }
+
+func (r *GamesRepository) UpdateGameRating(gameID uint) error {
+	var result struct {
+		Average *float64
+		Count   int
+	}
+	r.db.Model(&models.Review{}).
+		Select("AVG(score) as average, COUNT(*) as count").
+		Where("game_id = ?", gameID).
+		Scan(&result)
+
+	return r.db.Model(&models.Game{}).
+		Where("id = ?", gameID).
+		Updates(map[string]interface{}{
+			"average_rating": result.Average,
+			"review_count":   result.Count,
+		}).Error
+}
