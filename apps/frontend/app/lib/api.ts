@@ -25,6 +25,8 @@ export type ApiGame = {
   release_year?: number | null;
   cover_image_url?: string | null;
   description?: string | null;
+  average_rating?: number | null;
+  review_count?: number | null;
   duration?: {
     main_story_hours?: number;
     main_plus_sides_hours?: number;
@@ -64,6 +66,49 @@ export type ApiReview = {
   updated_at?: string;
   CreatedAt?: string;
   UpdatedAt?: string;
+};
+
+export type ApiPlaylistUser = {
+  user_id: number;
+  username: string;
+  status: string;
+  hours_played: number;
+};
+
+export type ApiGuide = {
+  id: number;
+  game_id: number;
+  user_id: number;
+  title: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+  CreatedAt?: string;
+  UpdatedAt?: string;
+};
+
+export type ApiArticle = {
+  id: number;
+  user_id: number;
+  user?: {
+    id: number;
+    username: string;
+  };
+  title: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+  CreatedAt?: string;
+  UpdatedAt?: string;
+};
+
+export type ApiGameCommunityHub = {
+  average_rating: number | null;
+  review_count: number;
+  rating_distribution: Record<string, number>;
+  reviews: ApiReview[];
+  lists: ApiGameList[];
+  playlist_users: ApiPlaylistUser[];
 };
 
 function getErrorMessage(payload: unknown, fallback: string) {
@@ -161,6 +206,97 @@ export function getGameById(gameId: number | string) {
   return apiRequest<ApiGame>(`/games/${gameId}`).catch((err) => {
     console.error(`[API] Failed to fetch game ${gameId}:`, err);
     throw err;
+  });
+}
+
+export function getGameCommunityHub(gameId: number | string) {
+  return apiRequest<ApiGameCommunityHub>(`/games/${gameId}/community`).then((result) => ({
+    average_rating: result.average_rating ?? null,
+    review_count: result.review_count ?? 0,
+    rating_distribution: result.rating_distribution ?? {},
+    reviews: result.reviews ?? [],
+    lists: result.lists ?? [],
+    playlist_users: result.playlist_users ?? [],
+  }));
+}
+
+export function getGameGuides(gameId: number | string) {
+  return apiRequest<ApiGuide[]>(`/games/${gameId}/guides/`).then((result) => result || []);
+}
+
+export function createGuide(
+  gameId: number | string,
+  payload: { title: string; content: string },
+) {
+  return apiRequest<ApiGuide>(`/games/${gameId}/guides/`, {
+    method: "POST",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function updateGuide(
+  gameId: number | string,
+  guideId: number | string,
+  payload: { title: string; content: string },
+) {
+  return apiRequest<ApiGuide>(`/games/${gameId}/guides/${guideId}`, {
+    method: "PUT",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function deleteGuide(gameId: number | string, guideId: number | string) {
+  return apiRequest<{ message: string }>(`/games/${gameId}/guides/${guideId}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+export function getAllArticles() {
+  return apiRequest<ApiArticle[]>("/articles/").then((result) => result || []);
+}
+
+export async function getArticleById(articleId: number | string) {
+  try {
+    return await apiRequest<ApiArticle>(`/articles/${articleId}`);
+  } catch {
+    const articles = await getAllArticles();
+    const normalizedId = Number(articleId);
+    const article = articles.find((entry) => entry.id === normalizedId);
+
+    if (!article) {
+      throw new Error("Article not found");
+    }
+
+    return article;
+  }
+}
+
+export function createArticle(payload: { title: string; content: string }) {
+  return apiRequest<ApiArticle>("/articles/", {
+    method: "POST",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function updateArticle(
+  articleId: number | string,
+  payload: { title: string; content: string },
+) {
+  return apiRequest<ApiArticle>(`/articles/${articleId}`, {
+    method: "PUT",
+    auth: true,
+    body: payload,
+  });
+}
+
+export function deleteArticle(articleId: number | string) {
+  return apiRequest<{ message: string }>(`/articles/${articleId}`, {
+    method: "DELETE",
+    auth: true,
   });
 }
 
@@ -271,6 +407,10 @@ export function createReview(payload: {
     auth: true,
     body: payload,
   });
+}
+
+export function getReviewById(reviewId: number | string) {
+  return apiRequest<ApiReview>(`/reviews/${reviewId}`);
 }
 
 export function updateReview(

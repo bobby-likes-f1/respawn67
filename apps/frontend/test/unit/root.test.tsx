@@ -57,28 +57,28 @@ describe("App", () => {
 describe("ErrorBoundary", () => {
   it("shows Oops! for generic errors", () => {
     isRouteErrorMock.mockReturnValue(false);
-    render(<ErrorBoundary error={new Error("boom")} />);
+    render(<ErrorBoundary error={new Error("boom")} params={{}} />);
     expect(screen.getByText("Oops!")).toBeInTheDocument();
   });
 
   it("shows 404 for route error with status 404", () => {
     isRouteErrorMock.mockReturnValue(true);
     const error = { status: 404, statusText: "Not Found", data: null } as any;
-    render(<ErrorBoundary error={error} />);
+    render(<ErrorBoundary error={error} params={{}} />);
     expect(screen.getByText("404")).toBeInTheDocument();
   });
 
   it("shows Error for non-404 route errors", () => {
     isRouteErrorMock.mockReturnValue(true);
     const error = { status: 500, statusText: "Server Error", data: null } as any;
-    render(<ErrorBoundary error={error} />);
+    render(<ErrorBoundary error={error} params={{}} />);
     expect(screen.getByText("Error")).toBeInTheDocument();
   });
 
   it("shows statusText for non-404 route errors", () => {
     isRouteErrorMock.mockReturnValue(true);
     const error = { status: 500, statusText: "Server Error", data: null } as any;
-    render(<ErrorBoundary error={error} />);
+    render(<ErrorBoundary error={error} params={{}} />);
     expect(screen.getByText("Server Error")).toBeInTheDocument();
   });
 });

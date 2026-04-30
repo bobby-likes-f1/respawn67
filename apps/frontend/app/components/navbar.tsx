@@ -48,6 +48,7 @@ export function Navbar() {
         { title: "Catalogue", href: "/catalogue" },
         { title: "Backlog", href: "/backlog" },
         { title: "Lists", href: "/lists" },
+        { title: "Articles", href: "/articles" },
         { title: "Community", href: "/community" },
       ];
 

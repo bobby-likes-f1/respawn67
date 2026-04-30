@@ -395,10 +395,10 @@ export default function CataloguePage() {
             Browse our complete collection of games. Click any game to view details.
           </p>
           {isLoading ? (
-            <p className="text-xs text-muted-foreground">Syncing latest games from backend...</p>
+            <p className="text-xs text-muted-foreground">Refreshing the latest games...</p>
           ) : null}
           {loadError ? (
-            <p className="text-xs text-amber-300">{loadError}. Showing fallback catalogue data.</p>
+            <p className="text-xs text-amber-300">{loadError}. Showing a saved catalogue for now.</p>
           ) : null}
         </div>
 

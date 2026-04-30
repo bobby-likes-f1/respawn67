@@ -57,7 +57,7 @@ export function transformGameData(game: ApiGame) {
   };
 }
 
-const MOCK_GAMES = [
+const RAW_MOCK_GAMES = [
   {
     id: 1,
     title: "Hades II",
@@ -251,6 +251,15 @@ const MOCK_GAMES = [
       "Gather your party and return to the Forgotten Realms in this award-winning RPG masterpiece.",
   },
 ];
+
+const MOCK_GAMES: ReturnType<typeof transformGameData>[] = RAW_MOCK_GAMES.map((game) => ({
+  ...game,
+  timeToHover: {
+    main: game.timeToBeat,
+    extra: game.timeToBeat,
+    complete: game.timeToBeat,
+  },
+}));
 
 export default function GamesPage() {
   const [games, setGames] = useState<ReturnType<typeof transformGameData>[]>([]);
