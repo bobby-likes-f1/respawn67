@@ -1,14 +1,102 @@
-# Sprint 3 — Backend
+# Sprint 4 — Frontend
+
+We focused on shipping the Articles feature set and building a Cypress E2E suite that validates real user flows end-to-end.
+
+### Completed Work
+
+#### Articles Tab
+- Added a full Articles navigation path with routes for browse, write, view, and edit (`/articles`, `/articles/write`, `/articles/:id`, `/articles/:id/edit`).
+- Implemented the **articles index** with API-driven content, author name enrichment, and client-side search across title, content, and author.
+- Built the **article detail** view with formatted rendering (headings, bullets, paragraphs), author profile linking, and readable publish dates.
+- Added **owner-only actions** on article detail for edit/delete, including a confirmation dialog and redirect after deletion.
+- Created a **write flow** with auth gating, validation rules, live preview, and publishing feedback before redirecting.
+- Implemented an **edit flow** that verifies article ownership, loads existing content, and shows success/error states before returning to the article view.
+- Expanded the **API layer** with `getAllArticles`, `getArticleById`, `createArticle`, `updateArticle`, and `deleteArticle`.
+
+#### Community Guides
+- Added **community guides** functionality with new guide creation and detail pages under the game community routes.
+- Implemented a **guide creation flow** with validation, author gating, and post-submit navigation back to the guide view.
+- Built a **guide detail page** that renders full guide content with author attribution and publish date context.
+
+#### Community Page Updates
+- Refreshed the **community page** content to surface guides, discussions, and contributor activity more clearly.
+- Improved page layout and interaction flow to make community browsing faster and more intuitive.
+
+#### API Layer Expansion
+- Extended articles API with `getAllArticles`, `getArticleById`, `createArticle`, `updateArticle`, and `deleteArticle`.
+- Added guides API wrappers for `getGameGuides`, `createGuide`, `updateGuide`, and `deleteGuide`.
+- Extended `ApiGuide` type to include id, game_id, user_id, title, content, and timestamps.
+- Maintained fallback logic in `getArticleById` for network resilience when API is temporarily unavailable.
+
+#### Cypress Testing Suite
+- Configured Cypress E2E settings for the Vite app (`baseUrl: http://localhost:5173`, viewport 1280x720, screenshots on failure, video off).
+- Added global support hooks to ignore known hydration and dynamic import exceptions during runs.
+- Wrote an **account like flow** test: login, like a game, verify liked state, visit Articles, and log out.
+- Wrote an **account + article flow** test: login, like a game, publish a unique article, open it, then log out.
+- Tests rely on **real UI navigation and form interactions**, validating behavior from the user's perspective.
+
+### Frontend Route Documentation
+
+| Route | Auth Required | Description |
+|---|---|---|
+| `/` | None | Landing home dashboard |
+| `/login` | None | User authentication login |
+| `/signup` | None | User account creation |
+| `/games` | None | Global game catalog with filtering, browsing, and community reviews |
+| `/games/:id` | None | Dynamic game detail with time-to-beat, community reviews, and user interactions |
+| `/games/:id/community` | None | Game community hub with reviews, guides, and discussions |
+| `/games/:id/community/guides/new` | Token | Create a new guide for a game (author gated) |
+| `/games/:id/community/guides/:guideId` | None | View a published guide with full content and author info |
+| `/games/:id/community/guides/:guideId/edit` | Token | Edit an existing guide (author gated) |
+| `/account` | Token | User profile, statistics, backlog preview, lists, and reviews |
+| `/backlog` | Token | User-specific backlog with hours tracking, status management, and progress bars |
+| `/users/:id` | None | Public user profile with favorites, backlog, reviews, and lists |
+| `/lists` | None | Global game list browser with search, sort, and create |
+| `/lists/:id` | None | List detail with game grid, add/remove (owner), and like button |
+| `/articles` | None | Browse all community articles with search |
+| `/articles/write` | Token | Create and publish a new article |
+| `/articles/:id` | None | Read a published article with author attribution |
+| `/articles/:id/edit` | Token | Edit an existing article (author gated) |
+| `/community` | None | Community hub with recent activity, guides, and discussions |
+
+*Note: Auth levels indicate whether a valid JWT session token is required to actively fetch/display specific page data. Owner-level write operations (create/edit/delete articles, guides, lists) require the token's user ID to match the resource owner.*
+
+### Unit Tests
+
+Extended the frontend unit test suite to cover Sprint 4 features:
+- **Articles functionality**: browse page rendering, article detail view, author enrichment, create/edit/delete flows
+- **Community guides**: guide creation, detail rendering, author-only edit/delete actions
+- **API integration**: articles and guides API wrapper tests with error handling
+
+Run unit tests with:
+```
+cd apps/frontend && npx vitest run
+```
+
+Run with coverage report:
+```
+cd apps/frontend && npx vitest run --coverage
+open apps/frontend/coverage/index.html
+```
+
+### How to Run
+From `apps/frontend/`:
+
+Run `npm install && npm run dev`. The client starts natively on http://localhost:5173.
+
+To run Cypress E2E tests:
+```
+cd apps/frontend && npx cypress open
+```
+Or run headless:
+```
+cd apps/frontend && npx cypress run
+```
+# Sprint 4 — Backend
 
 We focused on building the features like Articles, Community Hub, Guides and Average Rating.
 
 ---
-
-## Frontend
-
-=== to be filled ===
-
-## Backend
 
 
 We focused on expanding the platform with a game-specific community hub, guides (game-scoped walkthroughs), articles, and automatic average rating tracking. All new features follow the existing layered architecture (routes -> services -> repositories -> models) and are covered by repository-level unit tests.
